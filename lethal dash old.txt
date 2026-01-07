@@ -1,0 +1,767 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local localPlayer = Players.LocalPlayer
+if not localPlayer then
+    Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+    localPlayer = Players.LocalPlayer
+end
+
+local isScriptEnabled = true
+local triggerAnimationId = "rbxassetid://12296113986"
+
+local playerGui = localPlayer:WaitForChild("PlayerGui")
+
+local toggleGui = Instance.new("ScreenGui")
+toggleGui.Name = "ScriptToggleUI"
+toggleGui.ResetOnSpawn = false
+toggleGui.Parent = playerGui
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Name = "ToggleButton"
+toggleButton.Size = UDim2.new(0, 60, 0, 40)
+toggleButton.Position = UDim2.new(0, 20, 0, 120)
+toggleButton.AnchorPoint = Vector2.new(0, 0)
+toggleButton.BackgroundColor3 = Color3.fromRGB(128, 128, 128)
+toggleButton.BackgroundTransparency = 1
+toggleButton.BorderSizePixel = 0
+toggleButton.Text = "ON"
+toggleButton.Font = Enum.Font.GothamBold
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.TextScaled = true
+toggleButton.TextTransparency = 1
+toggleButton.AutoButtonColor = false
+toggleButton.Parent = toggleGui
+toggleButton.Active = true
+
+local toggleStroke = Instance.new("UIStroke")
+toggleStroke.Parent = toggleButton
+toggleStroke.Color = Color3.new(1, 1, 1)
+toggleStroke.Thickness = 1
+toggleStroke.Transparency = 1
+
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.Parent = toggleButton
+toggleCorner.CornerRadius = UDim.new(0, 6)
+
+local initialToggleTween = TweenService:Create(
+    toggleButton,
+    TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    { BackgroundTransparency = 0, TextTransparency = 0 }
+)
+
+local initialStrokeTween = TweenService:Create(
+    toggleStroke,
+    TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    { Transparency = 0 }
+)
+
+initialToggleTween:Play()
+initialStrokeTween:Play()
+
+local function updateToggleVisual(isEnabled)
+    if isEnabled then
+        TweenService:Create(
+            toggleButton,
+            TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            { BackgroundTransparency = 0, TextTransparency = 0 }
+        ):Play()
+
+        TweenService:Create(
+            toggleStroke,
+            TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            { Transparency = 0 }
+        ):Play()
+
+        toggleButton.Text = "ON"
+    else
+        TweenService:Create(
+            toggleButton,
+            TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            { BackgroundTransparency = 0.6, TextTransparency = 0.6 }
+        ):Play()
+
+        TweenService:Create(
+            toggleStroke,
+            TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            { Transparency = 0.6 }
+        ):Play()
+
+        toggleButton.Text = "OFF"
+    end
+end
+
+updateToggleVisual(isScriptEnabled)
+
+toggleButton.MouseButton1Click:Connect(function()
+    isScriptEnabled = not isScriptEnabled
+
+    local pressTween = TweenService:Create(
+        toggleButton,
+        TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {
+            BackgroundTransparency = math.clamp(toggleButton.BackgroundTransparency + 0.15, 0, 1),
+            TextTransparency = math.clamp(toggleButton.TextTransparency + 0.15, 0, 1)
+        }
+    )
+
+    local targetButtonProps = {
+        BackgroundTransparency = isScriptEnabled and 0 or 0.6,
+        TextTransparency = isScriptEnabled and 0 or 0.6
+    }
+
+    local stateTween = TweenService:Create(
+        toggleButton,
+        TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        targetButtonProps
+    )
+
+    local pressStrokeTween = TweenService:Create(
+        toggleStroke,
+        TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {
+            Transparency = math.clamp(toggleStroke.Transparency + 0.15, 0, 1)
+        }
+    )
+
+    local targetStrokeProps = {
+        Transparency = isScriptEnabled and 0 or 0.6
+    }
+
+    local stateStrokeTween = TweenService:Create(
+        toggleStroke,
+        TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        targetStrokeProps
+    )
+
+    pressTween:Play()
+    pressStrokeTween:Play()
+    pressTween.Completed:Wait()
+    stateTween:Play()
+    stateStrokeTween:Play()
+
+    toggleButton.Text = isScriptEnabled and "ON" or "OFF"
+end)
+
+local isDraggingToggle = false
+local toggleDragInput
+local toggleDragStart
+local toggleStartPosition
+
+local function updateToggleDrag(input)
+    local delta = input.Position - toggleDragStart
+    toggleButton.Position = UDim2.new(
+        math.clamp(toggleStartPosition.X.Scale, 0, 1),
+        toggleStartPosition.X.Offset + delta.X,
+        math.clamp(toggleStartPosition.Y.Scale, 0, 1),
+        toggleStartPosition.Y.Offset + delta.Y
+    )
+end
+
+toggleButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDraggingToggle = true
+        toggleDragStart = input.Position
+        toggleStartPosition = toggleButton.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                isDraggingToggle = false
+            end
+        end)
+    end
+end)
+
+toggleButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        toggleDragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == toggleDragInput and isDraggingToggle then
+        updateToggleDrag(input)
+    end
+end)
+
+local animationConnection
+
+local function maintainJump(humanoid, controlFlag)
+    task.spawn(function()
+        while controlFlag[1] do
+            humanoid.Jump = true
+            task.wait()
+        end
+        humanoid.Jump = false
+    end)
+end
+
+local function onAnimationPlayed(animationTrack)
+    if not isScriptEnabled then
+        return
+    end
+
+    if not animationTrack or not animationTrack.Animation then
+        return
+    end
+
+    if animationTrack.Animation.AnimationId ~= triggerAnimationId then
+        return
+    end
+
+    task.spawn(function()
+        task.wait(1.7)
+
+        local character = localPlayer.Character
+        if not character then
+            return
+        end
+
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        local humanoid = character:FindFirstChild("Humanoid")
+
+        if not rootPart or not humanoid then
+            return
+        end
+
+        local jumpControl = { true }
+        maintainJump(humanoid, jumpControl)
+
+        humanoid.AutoRotate = false
+
+        local upTween = TweenService:Create(
+            rootPart,
+            TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            { CFrame = rootPart.CFrame + Vector3.new(0, 10, 0) }
+        )
+
+        upTween:Play()
+        upTween.Completed:Wait()
+
+        local communicateRemote = character:FindFirstChild("Communicate")
+        if communicateRemote and typeof(communicateRemote.FireServer) == "function" then
+            local dashPayload = {
+                {
+                    Dash = Enum.KeyCode.W,
+                    Key = Enum.KeyCode.Q,
+                    Goal = "KeyPress"
+                }
+            }
+
+            pcall(function()
+                communicateRemote:FireServer(unpack(dashPayload))
+            end)
+        end
+
+        task.wait(0.1)
+
+        rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(180), 0)
+
+        local camera = workspace.CurrentCamera or workspace:FindFirstChildOfClass("Camera")
+        if camera then
+            local distance = (camera.CFrame.Position - rootPart.Position).Magnitude
+            camera.CFrame = CFrame.new(
+                rootPart.Position - rootPart.CFrame.LookVector * distance + Vector3.new(0, 2),
+                rootPart.Position
+            )
+        end
+
+        task.wait(0.15)
+
+        rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(180), 0)
+
+        if camera then
+            local distance2 = (camera.CFrame.Position - rootPart.Position).Magnitude
+            camera.CFrame = CFrame.new(
+                rootPart.Position - rootPart.CFrame.LookVector * distance2 + Vector3.new(0, 2),
+                rootPart.Position
+            )
+        end
+
+        jumpControl[1] = false
+    end)
+end
+
+local function bindAnimationListener()
+    if animationConnection then
+        animationConnection:Disconnect()
+        animationConnection = nil
+    end
+
+    local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+    local humanoid = character:WaitForChild("Humanoid")
+    animationConnection = humanoid.AnimationPlayed:Connect(onAnimationPlayed)
+end
+
+bindAnimationListener()
+localPlayer.CharacterAdded:Connect(bindAnimationListener)
+
+local introPlayer = localPlayer
+local introPlayerGui = introPlayer:WaitForChild("PlayerGui")
+
+local introSlideInDuration = 1.6
+local introHoldDuration = 0.8
+local introSlideOutDuration = 4 - introSlideInDuration - introHoldDuration
+
+local introFont = Enum.Font.GothamBlack
+local introTextColor = Color3.fromRGB(255, 255, 255)
+local introOutlineColor = Color3.fromRGB(0, 0, 0)
+
+local introOutlineOffsets = {
+    Vector2.new(-1, 0),
+    Vector2.new(1, 0),
+    Vector2.new(0, -1),
+    Vector2.new(0, 1),
+    Vector2.new(-0.7, -0.7),
+    Vector2.new(0.7, 0.7),
+    Vector2.new(-0.7, 0.7),
+    Vector2.new(0.7, -0.7)
+}
+
+local introFrameSize = UDim2.new(0.7, 0, 0.12, 0)
+local introAnchorPoint = Vector2.new(0.5, 0.5)
+local introCenterPosition = UDim2.new(0.5, 0, 0.5, 0)
+
+local introEasingInStyle = Enum.EasingStyle.Sine
+local introEasingOutStyle = Enum.EasingStyle.Back
+
+local function createInstance(className, properties)
+    local instance = Instance.new(className)
+    if properties then
+        for propertyName, propertyValue in pairs(properties) do
+            instance[propertyName] = propertyValue
+        end
+    end
+    return instance
+end
+
+local introBackgroundTransparency = 1
+local introTitleText = "Made by Merebennie"
+local introTextTransparency = 0.7
+local introTextSize = 40
+local introTextScaled = true
+
+local function copyToClipboard(text)
+    local anyAttempted = false
+    local lastError
+
+    if type(setclipboard) == "function" then
+        local ok, err = pcall(setclipboard, text)
+        if ok then
+            return true
+        end
+        anyAttempted = true
+        lastError = err
+    end
+
+    if syn and syn.set_clipboard then
+        local ok, err = pcall(syn.set_clipboard, text)
+        if ok then
+            return true
+        end
+        anyAttempted = true
+        lastError = err
+    end
+
+    local clipboardFunctionNames = {
+        "setclipboard",
+        "toClipboard",
+        "setClipboard",
+        "clip",
+        "clipboard",
+        "set_clipboard",
+        "setClipBoard",
+        "write_clipboard"
+    }
+
+    for _, functionName in ipairs(clipboardFunctionNames) do
+        local func = _G[functionName]
+        if type(func) == "function" then
+            local ok, err = pcall(func, text)
+            if ok then
+                return true
+            end
+            anyAttempted = true
+            lastError = err
+        end
+    end
+
+    if anyAttempted and lastError then
+        return false, lastError
+    end
+
+    return false, "no clipboard API available"
+end
+
+local discordInvite = "https://discord.gg/5x4xbPvuSc"
+local introSoundIdNumber = 138857089980331
+
+for _, child in ipairs(introPlayerGui:GetChildren()) do
+    if child.Name == "MerebennieIntroGui" then
+        child:Destroy()
+    end
+end
+
+local introScreenGui = createInstance("ScreenGui", {
+    Name = "MerebennieIntroGui",
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    DisplayOrder = 9999
+})
+
+introScreenGui.Parent = introPlayerGui
+
+local introMainFrame = createInstance("Frame", {
+    Name = "MainFrame",
+    AnchorPoint = introAnchorPoint,
+    Size = introFrameSize,
+    Position = introCenterPosition,
+    BackgroundTransparency = introBackgroundTransparency,
+    BorderSizePixel = 0,
+    ZIndex = 10
+})
+
+introMainFrame.Parent = introScreenGui
+
+local introTextContainer = createInstance("Frame", {
+    Name = "TextContainer",
+    Size = UDim2.new(1, 0, 1, 0),
+    Position = UDim2.new(0, 0, 0, 0),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ZIndex = 11
+})
+
+introTextContainer.Parent = introMainFrame
+
+local introOutlineLabels = {}
+for index, offset in ipairs(introOutlineOffsets) do
+    local outlineLabel = createInstance("TextLabel", {
+        Name = "Outline" .. index,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, offset.X, 0.5, offset.Y),
+        Size = UDim2.new(0.95, 0, 0.95, 0),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Text = introTitleText,
+        TextColor3 = introOutlineColor,
+        TextTransparency = 1 - introTextTransparency,
+        TextSize = introTextSize,
+        TextScaled = introTextScaled,
+        Font = introFont,
+        ZIndex = 12,
+        TextWrapped = true,
+        TextStrokeTransparency = 1,
+        Rotation = 0
+    })
+
+    outlineLabel.Parent = introTextContainer
+    table.insert(introOutlineLabels, outlineLabel)
+end
+
+local introMainLabel = createInstance("TextLabel", {
+    Name = "MainLabel",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.new(0.5, 0, 0.5, 0),
+    Size = UDim2.new(0.95, 0, 0.95, 0),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    Text = introTitleText,
+    TextColor3 = introTextColor,
+    TextTransparency = 0,
+    TextSize = introTextSize,
+    TextScaled = introTextScaled,
+    Font = introFont,
+    ZIndex = 13,
+    TextWrapped = true,
+    TextStrokeTransparency = 1
+})
+
+introMainLabel.Parent = introTextContainer
+
+local flourishLeft = createInstance("ImageLabel", {
+    Name = "FlourishLeft",
+    AnchorPoint = Vector2.new(1, 0.5),
+    Position = UDim2.new(0.5, -introMainFrame.AbsoluteSize.X * 0.5, 0.5, 0),
+    Size = UDim2.new(0.1, 0, 0.6, 0),
+    BackgroundTransparency = 1,
+    Image = "rbxassetid://0",
+    ZIndex = 9,
+    Visible = false
+})
+
+flourishLeft.Parent = introMainFrame
+
+local flourishRight = flourishLeft:Clone()
+flourishRight.Name = "FlourishRight"
+flourishRight.AnchorPoint = Vector2.new(0, 0.5)
+flourishRight.Position = UDim2.new(0.5, introMainFrame.AbsoluteSize.X * 0.5, 0.5, 0)
+flourishRight.Parent = introMainFrame
+
+local introBackgroundOverlay = createInstance("Frame", {
+    Name = "BackgroundOverlay",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.new(0.5, 0, 0.5, 0),
+    Size = UDim2.new(0.98, 0, 0.16, 0),
+    BackgroundTransparency = 1,
+    BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+    BorderSizePixel = 0,
+    ZIndex = 8
+})
+
+introBackgroundOverlay.Parent = introScreenGui
+
+createInstance("UICorner", {
+    CornerRadius = UDim.new(0.14, 0),
+    Parent = introBackgroundOverlay
+})
+
+local introSound = createInstance("Sound", {
+    Name = "IntroSound",
+    SoundId = "rbxassetid://" .. tostring(introSoundIdNumber),
+    Volume = 0.9,
+    Looped = false,
+    PlayOnRemove = false,
+    Parent = introMainFrame
+})
+
+local function playIntro()
+    introBackgroundOverlay.BackgroundTransparency = 1
+
+    TweenService:Create(
+        introBackgroundOverlay,
+        TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+        { BackgroundTransparency = 0.6 }
+    ):Play()
+
+    pcall(function()
+        introSound:Play()
+    end)
+
+    local slideInInfo = TweenInfo.new(introSlideInDuration, introEasingInStyle, Enum.EasingDirection.Out)
+    local slideOutInfo = TweenInfo.new(introSlideOutDuration, introEasingOutStyle, Enum.EasingDirection.In)
+
+    introMainFrame.Position = UDim2.new(-0.5, 0, 0.5, 0)
+    introMainFrame.Rotation = -45
+
+    for _, label in ipairs(introOutlineLabels) do
+        label.Rotation = -45
+    end
+
+    introMainLabel.Rotation = -45
+    introBackgroundOverlay.Position = UDim2.new(0.5, -50, 0.5, 0)
+
+    local targetRotation = 8
+
+    local frameTween = TweenService:Create(
+        introMainFrame,
+        slideInInfo,
+        { Position = introCenterPosition, Rotation = targetRotation }
+    )
+
+    local outlineTweens = {}
+    for index, label in ipairs(introOutlineLabels) do
+        outlineTweens[index] = TweenService:Create(
+            label,
+            slideInInfo,
+            { Rotation = targetRotation }
+        )
+    end
+
+    local labelRotationTween = TweenService:Create(
+        introMainLabel,
+        slideInInfo,
+        { Rotation = targetRotation }
+    )
+
+    local labelScaleTween = TweenService:Create(
+        introMainLabel,
+        TweenInfo.new(introSlideInDuration * 0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+        { Size = UDim2.new(0.99, 0, 0.99, 0) }
+    )
+
+    frameTween:Play()
+    for _, tween in ipairs(outlineTweens) do
+        tween:Play()
+    end
+    labelRotationTween:Play()
+    labelScaleTween:Play()
+
+    local wobbleConnection
+    local wobbleStartTime = tick()
+
+    wobbleConnection = RunService.RenderStepped:Connect(function()
+        local elapsed = tick() - wobbleStartTime
+        if elapsed <= introSlideInDuration then
+            local wobbleAmount = math.sin(elapsed * 18) * (3 * (1 - elapsed / introSlideInDuration))
+            introMainFrame.Rotation = targetRotation + wobbleAmount
+            introMainLabel.Rotation = targetRotation + wobbleAmount
+
+            for _, label in ipairs(introOutlineLabels) do
+                label.Rotation = targetRotation + wobbleAmount
+            end
+        else
+            wobbleConnection:Disconnect()
+        end
+    end)
+
+    frameTween.Completed:Wait()
+
+    local settleFrameTween = TweenService:Create(
+        introMainFrame,
+        TweenInfo.new(0.18, Enum.EasingStyle.Sine),
+        { Rotation = 0 }
+    )
+
+    local settleOutlineTweens = {}
+    for index, label in ipairs(introOutlineLabels) do
+        settleOutlineTweens[index] = TweenService:Create(
+            label,
+            TweenInfo.new(0.18, Enum.EasingStyle.Sine),
+            { Rotation = 0 }
+        )
+    end
+
+    local settleLabelTween = TweenService:Create(
+        introMainLabel,
+        TweenInfo.new(0.18, Enum.EasingStyle.Sine),
+        { Rotation = 0 }
+    )
+
+    settleFrameTween:Play()
+    for _, tween in ipairs(settleOutlineTweens) do
+        tween:Play()
+    end
+    settleLabelTween:Play()
+    settleFrameTween.Completed:Wait()
+
+    local holdStartTime = tick()
+    local holdConnection
+
+    holdConnection = RunService.RenderStepped:Connect(function()
+        local elapsed = tick() - holdStartTime
+        if elapsed <= introHoldDuration then
+            local wobbleRotation = math.sin(elapsed * 4.5) * 2
+            local scalePulse = 1 + 0.015 * math.sin(elapsed * 6.5)
+
+            introMainFrame.Rotation = wobbleRotation
+            introMainLabel.Rotation = wobbleRotation
+
+            for _, label in ipairs(introOutlineLabels) do
+                label.Rotation = wobbleRotation
+            end
+
+            introMainLabel.Size = UDim2.new(0.95 * scalePulse, 0, 0.95 * scalePulse, 0)
+        else
+            holdConnection:Disconnect()
+        end
+    end)
+
+    task.wait(introHoldDuration)
+
+    local exitRotation = 45
+
+    local slideOutFrameTween = TweenService:Create(
+        introMainFrame,
+        slideOutInfo,
+        { Position = UDim2.new(1.5, 0, 0.5, 0), Rotation = exitRotation }
+    )
+
+    local slideOutOutlineTweens = {}
+    for index, label in ipairs(introOutlineLabels) do
+        slideOutOutlineTweens[index] = TweenService:Create(
+            label,
+            slideOutInfo,
+            { Rotation = exitRotation }
+        )
+    end
+
+    local slideOutLabelTween = TweenService:Create(
+        introMainLabel,
+        slideOutInfo,
+        { Rotation = exitRotation, TextTransparency = 1 }
+    )
+
+    local backgroundFadeTween = TweenService:Create(
+        introBackgroundOverlay,
+        slideOutInfo,
+        { BackgroundTransparency = 1 }
+    )
+
+    slideOutFrameTween:Play()
+    for _, tween in ipairs(slideOutOutlineTweens) do
+        tween:Play()
+    end
+    slideOutLabelTween:Play()
+    backgroundFadeTween:Play()
+
+    TweenService:Create(
+        introMainLabel,
+        TweenInfo.new(introSlideOutDuration * 0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+        { Size = UDim2.new(1.15, 0, 1.15, 0) }
+    ):Play()
+
+    slideOutFrameTween.Completed:Wait()
+
+    pcall(function()
+        introScreenGui:Destroy()
+    end)
+end
+
+local function showNotification(message, duration)
+    local notificationLabel = createInstance("TextLabel", {
+        Name = "MerebennieNotify",
+        AnchorPoint = Vector2.new(1, 0),
+        Position = UDim2.new(0.98, 0, 0.02, 0),
+        Size = UDim2.new(0.28, 0, 0.06, 0),
+        BackgroundTransparency = 0.15,
+        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+        Text = message,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        TextScaled = true,
+        Font = Enum.Font.Gotham,
+        ZIndex = 9999,
+        Parent = introPlayerGui
+    })
+
+    createInstance("UICorner", {
+        Parent = notificationLabel
+    })
+
+    notificationLabel.TextTransparency = 1
+
+    local fadeInTween = TweenService:Create(
+        notificationLabel,
+        TweenInfo.new(0.15, Enum.EasingStyle.Sine),
+        { TextTransparency = 0, BackgroundTransparency = 0.3 }
+    )
+
+    local fadeOutTween = TweenService:Create(
+        notificationLabel,
+        TweenInfo.new(0.25, Enum.EasingStyle.Sine),
+        { TextTransparency = 1, BackgroundTransparency = 1 }
+    )
+
+    fadeInTween:Play()
+    task.wait(duration or 1.6)
+    fadeOutTween:Play()
+    fadeOutTween.Completed:Wait()
+
+    pcall(function()
+        notificationLabel:Destroy()
+    end)
+end
+
+local copied, copyError = copyToClipboard(discordInvite)
+if copied then
+    task.spawn(function()
+        showNotification("Link copied!", 1.6)
+    end)
+end
+
+task.spawn(function()
+    task.wait(0.04)
+    playIntro()
+end)

@@ -1,0 +1,734 @@
+local players = game:GetService("Players")
+local tweenService = game:GetService("TweenService")
+local userInputService = game:GetService("UserInputService")
+local debrisService = game:GetService("Debris")
+
+local localPlayer = players.LocalPlayer
+
+local dashDelaySeconds = 0.3
+local dashAdjustStep = 0.05
+local dashMinDelay = 0.05
+local dashMaxDelay = 2
+local isLixTechEnabled = false
+local isDashInProgress = false
+local clickSoundAssetId = "rbxassetid://1127797184"
+local discordInviteLink = "https://discord.gg/qZMqF4YRn7"
+local hasShownDiscordPrompt = false
+
+local function protectGui(guiObject)
+    if syn and syn.protect_gui then
+        pcall(function()
+            syn.protect_gui(guiObject)
+        end)
+    end
+end
+
+local function clampNumber(value, minValue, maxValue)
+    if value < minValue then
+        return minValue
+    elseif value > maxValue then
+        return maxValue
+    else
+        return value
+    end
+end
+
+local function formatSecondsLabel(seconds)
+    return string.format("%.2f", seconds):gsub("(%..-)0+$", "%1"):gsub("%.$", "") .. "s"
+end
+
+local function playClickSound(parent)
+    pcall(function()
+        local sound = Instance.new("Sound")
+        sound.SoundId = clickSoundAssetId
+        sound.Volume = 0.7
+        sound.Parent = parent or workspace
+        sound:Play()
+        debrisService:AddItem(sound, 2)
+    end)
+end
+
+local function createTweenPulse(uiObject, targetScale, tweenInTime, tweenOutTime)
+    return function()
+        pcall(function()
+            local originalSize = uiObject.Size
+            local originalPosition = uiObject.Position
+            local scaledSize = (function(size, scale)
+                local xScale = size.X.Scale * scale
+                local xOffset = math.floor(size.X.Offset * scale + 0.5)
+                local yScale = size.Y.Scale * scale
+                local yOffset = math.floor(size.Y.Offset * scale + 0.5)
+                return UDim2.new(xScale, xOffset, yScale, yOffset)
+            end)(originalSize, targetScale)
+
+            local newXOffset = originalPosition.X.Offset + math.floor((originalSize.X.Offset - scaledSize.X.Offset) / 2 + 0.5)
+            local newYOffset = originalPosition.Y.Offset + math.floor((originalSize.Y.Offset - scaledSize.Y.Offset) / 2 + 0.5)
+
+            tweenService:Create(
+                uiObject,
+                TweenInfo.new(tweenInTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                {
+                    Size = scaledSize,
+                    Position = UDim2.new(originalPosition.X.Scale, newXOffset, originalPosition.Y.Scale, newYOffset)
+                }
+            ):Play()
+
+            task.wait(tweenInTime)
+
+            tweenService:Create(
+                uiObject,
+                TweenInfo.new(tweenOutTime, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+                {
+                    Size = originalSize,
+                    Position = originalPosition
+                }
+            ):Play()
+        end)
+    end
+end
+
+local lixTechGui = Instance.new("ScreenGui")
+lixTechGui.Name = "LixTechGui"
+lixTechGui.ResetOnSpawn = false
+lixTechGui.Parent = game:GetService("CoreGui")
+protectGui(lixTechGui)
+
+local mainToggleButton = Instance.new("TextButton")
+mainToggleButton.Size = UDim2.new(0, 150, 0, 36)
+mainToggleButton.Position = UDim2.new(0, 18, 0, 180)
+mainToggleButton.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
+mainToggleButton.BorderSizePixel = 0
+mainToggleButton.Text = ""
+mainToggleButton.Parent = lixTechGui
+mainToggleButton.Active = true
+mainToggleButton.AutoButtonColor = false
+mainToggleButton.ZIndex = 5
+
+local mainToggleStroke = Instance.new("UIStroke")
+mainToggleStroke.Parent = mainToggleButton
+mainToggleStroke.Color = Color3.new(0, 0, 0)
+mainToggleStroke.Thickness = 1
+mainToggleStroke.Transparency = 0
+
+local mainToggleCorner = Instance.new("UICorner")
+mainToggleCorner.Parent = mainToggleButton
+mainToggleCorner.CornerRadius = UDim.new(0, 8)
+
+local mainToggleInnerFrame = Instance.new("Frame")
+mainToggleInnerFrame.Size = UDim2.new(0.86, 0, 0.72, 0)
+mainToggleInnerFrame.Position = UDim2.new(0.07, 0, 0.14, 0)
+mainToggleInnerFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+mainToggleInnerFrame.BorderSizePixel = 0
+mainToggleInnerFrame.Parent = mainToggleButton
+mainToggleInnerFrame.ZIndex = 6
+
+local mainToggleInnerCorner = Instance.new("UICorner")
+mainToggleInnerCorner.CornerRadius = UDim.new(0, 6)
+mainToggleInnerCorner.Parent = mainToggleInnerFrame
+
+local mainToggleBackground = Instance.new("Frame")
+mainToggleBackground.Size = UDim2.new(1, -4, 1, -4)
+mainToggleBackground.Position = UDim2.new(0, 2, 0, 2)
+mainToggleBackground.BackgroundColor3 = Color3.fromRGB(33, 180, 83)
+mainToggleBackground.BorderSizePixel = 0
+mainToggleBackground.Parent = mainToggleInnerFrame
+mainToggleBackground.ZIndex = 7
+
+local mainToggleBackgroundCorner = Instance.new("UICorner")
+mainToggleBackgroundCorner.CornerRadius = UDim.new(0, 5)
+mainToggleBackgroundCorner.Parent = mainToggleBackground
+
+local innerFrameStroke = Instance.new("UIStroke")
+innerFrameStroke.Parent = mainToggleInnerFrame
+innerFrameStroke.Color = Color3.new(0, 0, 0)
+innerFrameStroke.Thickness = 1
+innerFrameStroke.Transparency = 0
+
+local mainToggleLabel = Instance.new("TextLabel")
+mainToggleLabel.Size = UDim2.new(1, 0, 1, 0)
+mainToggleLabel.BackgroundTransparency = 1
+mainToggleLabel.Text = "Lix Tech: OFF"
+mainToggleLabel.Font = Enum.Font.GothamBold
+mainToggleLabel.TextSize = 18
+mainToggleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+mainToggleLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+mainToggleLabel.TextStrokeTransparency = 0
+mainToggleLabel.Parent = mainToggleBackground
+mainToggleLabel.ZIndex = 8
+mainToggleLabel.TextXAlignment = Enum.TextXAlignment.Center
+mainToggleLabel.TextYAlignment = Enum.TextYAlignment.Center
+
+local clickSound = Instance.new("Sound")
+clickSound.SoundId = clickSoundAssetId
+clickSound.Volume = 0.7
+clickSound.Parent = mainToggleButton
+
+local mainTogglePulse = createTweenPulse(mainToggleButton, 0.96, 0.06, 0.12)
+
+local isMainToggleDragging = false
+local dragInputObject = nil
+local dragStartPosition = nil
+local dragStartButtonPosition = nil
+
+mainToggleButton.InputBegan:Connect(function(inputObject, gameProcessed)
+    if not gameProcessed then
+        if inputObject.UserInputType == Enum.UserInputType.MouseButton1 or inputObject.UserInputType == Enum.UserInputType.Touch then
+            isMainToggleDragging = true
+            dragStartPosition = inputObject.Position
+            dragStartButtonPosition = mainToggleButton.Position
+            inputObject.Changed:Connect(function()
+                if inputObject.UserInputState == Enum.UserInputState.End then
+                    isMainToggleDragging = false
+                end
+            end)
+        end
+    end
+end)
+
+mainToggleButton.InputChanged:Connect(function(inputObject)
+    if inputObject.UserInputType == Enum.UserInputType.MouseMovement or inputObject.UserInputType == Enum.UserInputType.Touch then
+        dragInputObject = inputObject
+    end
+end)
+
+userInputService.InputChanged:Connect(function(inputObject)
+    if isMainToggleDragging and dragInputObject and inputObject == dragInputObject then
+        local delta = inputObject.Position - dragStartPosition
+        local newX = dragStartButtonPosition.X.Offset + delta.X
+        local newY = dragStartButtonPosition.Y.Offset + delta.Y
+
+        local camera = workspace.CurrentCamera
+        local viewportWidth = camera and (camera.ViewportSize.X or 1920) or 1920
+        local viewportHeight = camera and camera.ViewportSize.Y or 1080
+
+        local clampedX = math.clamp(newX, 0, math.max(0, viewportWidth - mainToggleButton.AbsoluteSize.X))
+        local clampedY = math.clamp(newY, 0, math.max(0, viewportHeight - mainToggleButton.AbsoluteSize.Y))
+
+        mainToggleButton.Position = UDim2.new(dragStartButtonPosition.X.Scale, clampedX, dragStartButtonPosition.Y.Scale, clampedY)
+    end
+end)
+
+mainToggleButton.MouseButton1Click:Connect(function()
+    mainTogglePulse()
+    playClickSound(mainToggleButton)
+    isLixTechEnabled = not isLixTechEnabled
+    mainToggleLabel.Text = isLixTechEnabled and "Lix Tech: ON" or "Lix Tech: OFF"
+end)
+
+local delayAdjustGui = Instance.new("ScreenGui")
+delayAdjustGui.Name = "LixAdjustGui"
+delayAdjustGui.ResetOnSpawn = false
+delayAdjustGui.Parent = game:GetService("CoreGui")
+protectGui(delayAdjustGui)
+
+local delayAdjustFrame = Instance.new("Frame")
+delayAdjustFrame.Size = UDim2.new(0, 160, 0, 64)
+delayAdjustFrame.Position = UDim2.new(0, 18, 0, 230)
+delayAdjustFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+delayAdjustFrame.BackgroundTransparency = 0.3
+delayAdjustFrame.BorderSizePixel = 0
+delayAdjustFrame.Parent = delayAdjustGui
+delayAdjustFrame.ZIndex = 5
+
+local delayAdjustCorner = Instance.new("UICorner")
+delayAdjustCorner.Parent = delayAdjustFrame
+delayAdjustCorner.CornerRadius = UDim.new(0, 8)
+
+local delayAdjustStroke = Instance.new("UIStroke")
+delayAdjustStroke.Parent = delayAdjustFrame
+delayAdjustStroke.Color = Color3.new(0, 0, 0)
+delayAdjustStroke.Thickness = 1
+delayAdjustStroke.Transparency = 0
+
+local delayDragGrip = Instance.new("Frame")
+delayDragGrip.Name = "DragGrip"
+delayDragGrip.Size = UDim2.new(1, 0, 0, 20)
+delayDragGrip.Position = UDim2.new(0, 0, 0, 0)
+delayDragGrip.BackgroundTransparency = 1
+delayDragGrip.BorderSizePixel = 0
+delayDragGrip.Parent = delayAdjustFrame
+delayDragGrip.ZIndex = 6
+
+local delayTitleLabel = Instance.new("TextLabel")
+delayTitleLabel.Size = UDim2.new(1, -12, 0, 18)
+delayTitleLabel.Position = UDim2.new(0, 6, 0, 2)
+delayTitleLabel.BackgroundTransparency = 1
+delayTitleLabel.Text = "Delay Adjust"
+delayTitleLabel.Font = Enum.Font.GothamSemibold
+delayTitleLabel.TextSize = 13
+delayTitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+delayTitleLabel.Parent = delayAdjustFrame
+delayTitleLabel.ZIndex = 7
+delayTitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local delayValueBackgroundOuter = Instance.new("Frame")
+delayValueBackgroundOuter.Size = UDim2.new(0.56, 0, 0, 24)
+delayValueBackgroundOuter.Position = UDim2.new(0.06, 0, 0, 22)
+delayValueBackgroundOuter.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+delayValueBackgroundOuter.Parent = delayAdjustFrame
+delayValueBackgroundOuter.ZIndex = 6
+
+local delayValueOuterCorner = Instance.new("UICorner")
+delayValueOuterCorner.CornerRadius = UDim.new(0, 6)
+delayValueOuterCorner.Parent = delayValueBackgroundOuter
+
+local delayValueBackgroundInner = Instance.new("Frame")
+delayValueBackgroundInner.Size = UDim2.new(1, -4, 1, -4)
+delayValueBackgroundInner.Position = UDim2.new(0, 2, 0, 2)
+delayValueBackgroundInner.BackgroundColor3 = Color3.fromRGB(33, 180, 83)
+delayValueBackgroundInner.Parent = delayValueBackgroundOuter
+delayValueBackgroundInner.ZIndex = 7
+
+local delayValueLabel = Instance.new("TextLabel")
+delayValueLabel.Size = UDim2.new(1, 0, 1, 0)
+delayValueLabel.BackgroundTransparency = 1
+delayValueLabel.Text = formatSecondsLabel(dashDelaySeconds)
+delayValueLabel.Font = Enum.Font.GothamBold
+delayValueLabel.TextSize = 14
+delayValueLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+delayValueLabel.TextStrokeTransparency = 0
+delayValueLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+delayValueLabel.Parent = delayValueBackgroundInner
+delayValueLabel.ZIndex = 8
+delayValueLabel.TextXAlignment = Enum.TextXAlignment.Center
+delayValueLabel.TextYAlignment = Enum.TextYAlignment.Center
+
+local function createAdjustButton(parent, xScalePosition, text)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(0, 28, 0, 28)
+    button.Position = UDim2.new(xScalePosition, 0, 0, 22)
+    button.BackgroundColor3 = Color3.fromRGB(33, 180, 83)
+    button.BorderSizePixel = 0
+    button.Text = text
+    button.Font = Enum.Font.GothamBold
+    button.TextSize = 18
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.Parent = parent
+    button.ZIndex = 6
+
+    local buttonCorner = Instance.new("UICorner")
+    buttonCorner.CornerRadius = UDim.new(1, 0)
+    buttonCorner.Parent = button
+
+    local buttonStroke = Instance.new("UIStroke")
+    buttonStroke.Parent = button
+    buttonStroke.Color = Color3.new(0, 0, 0)
+    buttonStroke.Thickness = 1
+    buttonStroke.Transparency = 0
+
+    return button
+end
+
+local decreaseDelayButton = createAdjustButton(delayAdjustFrame, 0.62, "−")
+local increaseDelayButton = createAdjustButton(delayAdjustFrame, 0.8, "+")
+
+local function attachButtonClickEffects(button)
+    local buttonPulse = createTweenPulse(button, 0.86, 0.06, 0.1)
+    button.MouseButton1Down:Connect(function()
+        buttonPulse()
+        playClickSound(button)
+    end)
+end
+
+attachButtonClickEffects(decreaseDelayButton)
+attachButtonClickEffects(increaseDelayButton)
+
+local function updateDelayLabel()
+    delayValueLabel.Text = formatSecondsLabel(dashDelaySeconds)
+end
+
+decreaseDelayButton.MouseButton1Click:Connect(function()
+    dashDelaySeconds = clampNumber(
+        math.floor((dashDelaySeconds - dashAdjustStep) * 100 + 0.5) / 100,
+        dashMinDelay,
+        dashMaxDelay
+    )
+    updateDelayLabel()
+end)
+
+increaseDelayButton.MouseButton1Click:Connect(function()
+    dashDelaySeconds = clampNumber(
+        math.floor((dashDelaySeconds + dashAdjustStep) * 100 + 0.5) / 100,
+        dashMinDelay,
+        dashMaxDelay
+    )
+    updateDelayLabel()
+end)
+
+local isDelayFrameDragging = false
+local delayDragInputObject = nil
+local delayDragStartPosition = nil
+local delayDragStartFramePosition = nil
+
+local function startDelayFrameDrag(inputObject)
+    isDelayFrameDragging = true
+    delayDragStartPosition = inputObject.Position
+    delayDragStartFramePosition = delayAdjustFrame.Position
+    inputObject.Changed:Connect(function()
+        if inputObject.UserInputState == Enum.UserInputState.End then
+            isDelayFrameDragging = false
+        end
+    end)
+end
+
+delayDragGrip.InputBegan:Connect(function(inputObject, gameProcessed)
+    if not gameProcessed then
+        if inputObject.UserInputType == Enum.UserInputType.MouseButton1 or inputObject.UserInputType == Enum.UserInputType.Touch then
+            startDelayFrameDrag(inputObject)
+            delayDragInputObject = inputObject
+        end
+    end
+end)
+
+delayDragGrip.InputChanged:Connect(function(inputObject)
+    if inputObject.UserInputType == Enum.UserInputType.MouseMovement or inputObject.UserInputType == Enum.UserInputType.Touch then
+        delayDragInputObject = inputObject
+    end
+end)
+
+userInputService.InputChanged:Connect(function(inputObject)
+    if delayDragInputObject and isDelayFrameDragging and inputObject == delayDragInputObject then
+        local delta = inputObject.Position - delayDragStartPosition
+        local newX = delayDragStartFramePosition.X.Offset + delta.X
+        local newY = delayDragStartFramePosition.Y.Offset + delta.Y
+
+        local camera = workspace.CurrentCamera
+        local viewportWidth = camera and (camera.ViewportSize.X or 1920) or 1920
+        local viewportHeight = camera and camera.ViewportSize.Y or 1080
+
+        local clampedX = math.clamp(newX, 0, math.max(0, viewportWidth - delayAdjustFrame.AbsoluteSize.X))
+        local clampedY = math.clamp(newY, 0, math.max(0, viewportHeight - delayAdjustFrame.AbsoluteSize.Y))
+
+        delayAdjustFrame.Position = UDim2.new(delayDragStartFramePosition.X.Scale, clampedX, delayDragStartFramePosition.Y.Scale, clampedY)
+    end
+end)
+
+local function findNilInstanceByNameAndClass(instanceName, className)
+    if not getnilinstances then
+        return nil
+    end
+
+    for _, instance in pairs(getnilinstances()) do
+        if instance and instance.ClassName == className and instance.Name == instanceName then
+            return instance
+        end
+    end
+
+    return nil
+end
+
+local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+local humanoid = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid")
+local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+
+local function getHumanoidStateSnapshot(targetHumanoid)
+    if targetHumanoid then
+        return {
+            WalkSpeed = targetHumanoid.WalkSpeed,
+            JumpPower = targetHumanoid.JumpPower,
+            PlatformStand = targetHumanoid.PlatformStand,
+            AutoRotate = targetHumanoid.AutoRotate
+        }
+    end
+
+    return {
+        WalkSpeed = 16,
+        JumpPower = 50,
+        PlatformStand = false,
+        AutoRotate = true
+    }
+end
+
+local humanoidDefaultState = getHumanoidStateSnapshot(humanoid)
+
+local function onAnimationPlayed(animationTrack)
+    if isLixTechEnabled and not isDashInProgress then
+        if animationTrack and animationTrack.Animation then
+            local success, animationAssetId = pcall(function()
+                local animationIdString = animationTrack.Animation.AnimationId or ""
+                return tonumber(animationIdString:match("%d+"))
+            end)
+
+            if success and animationAssetId then
+                if animationAssetId == 13379003796 or animationAssetId == 10503381238 then
+                    isDashInProgress = true
+
+                    humanoid = character and character:FindFirstChildOfClass("Humanoid") or humanoid
+                    humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart") or humanoidRootPart
+
+                    local currentHumanoidState = getHumanoidStateSnapshot(humanoid)
+
+                    task.wait(dashDelaySeconds)
+
+                    local dashCommandPayload = {
+                        {
+                            Dash = Enum.KeyCode.W,
+                            Key = Enum.KeyCode.Q,
+                            Goal = "KeyPress"
+                        }
+                    }
+
+                    if character and character:FindFirstChild("Communicate") then
+                        pcall(function()
+                            character.Communicate:FireServer(table.unpack(dashCommandPayload))
+                        end)
+                    end
+
+                    local originalBodyVelocity = findNilInstanceByNameAndClass("moveme", "BodyVelocity")
+                    local originalParent = nil
+
+                    if originalBodyVelocity then
+                        originalParent = originalBodyVelocity.Parent
+                        pcall(function()
+                            originalBodyVelocity.Parent = nil
+                        end)
+                    end
+
+                    local deleteBodyVelocityPayload = {
+                        {
+                            Goal = "delete bv",
+                            BV = originalBodyVelocity
+                        }
+                    }
+
+                    if character and character:FindFirstChild("Communicate") then
+                        pcall(function()
+                            character.Communicate:FireServer(table.unpack(deleteBodyVelocityPayload))
+                        end)
+                    end
+
+                    task.wait(0.3)
+
+                    if humanoidRootPart then
+                        pcall(function()
+                            humanoidRootPart.CFrame = humanoidRootPart.CFrame * CFrame.Angles(0, math.rad(180), 0)
+                        end)
+                    end
+
+                    if originalBodyVelocity and originalBodyVelocity.Parent == nil and originalParent and originalBodyVelocity and originalBodyVelocity.Parent == nil then
+                        pcall(function()
+                            originalBodyVelocity.Parent = originalParent
+                        end)
+                    end
+
+                    if humanoid then
+                        pcall(function()
+                            humanoid.WalkSpeed = currentHumanoidState.WalkSpeed or humanoidDefaultState.WalkSpeed or 16
+                            humanoid.JumpPower = currentHumanoidState.JumpPower or humanoidDefaultState.JumpPower or 50
+                            humanoid.PlatformStand = currentHumanoidState.PlatformStand or humanoidDefaultState.PlatformStand or false
+                            humanoid.AutoRotate = currentHumanoidState.AutoRotate or humanoidDefaultState.AutoRotate or true
+                        end)
+                    end
+
+                    task.wait(0.4)
+
+                    humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart") or humanoidRootPart
+                    if humanoidRootPart then
+                        pcall(function()
+                            humanoidRootPart.CFrame = humanoidRootPart.CFrame * CFrame.Angles(0, math.rad(180), 0)
+                        end)
+                    end
+
+                    task.wait(0.15)
+                    isDashInProgress = false
+                end
+            end
+        else
+            return
+        end
+    else
+        return
+    end
+end
+
+local function onCharacterLoaded(newCharacter)
+    character = newCharacter
+    humanoid = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid")
+    humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    humanoidDefaultState = getHumanoidStateSnapshot(humanoid)
+
+    if humanoid then
+        humanoid.AnimationPlayed:Connect(onAnimationPlayed)
+    end
+end
+
+if localPlayer.Character then
+    onCharacterLoaded(localPlayer.Character)
+end
+
+localPlayer.CharacterAdded:Connect(function(newCharacter)
+    task.wait(0.1)
+    onCharacterLoaded(newCharacter)
+end)
+
+lixTechGui.DescendantRemoving:Connect(function(descendant)
+    if descendant == mainToggleButton then
+        isLixTechEnabled = false
+    end
+end)
+
+delayAdjustGui.DescendantRemoving:Connect(function()
+end)
+
+local function copyToClipboard(text)
+    local copied = false
+
+    pcall(function()
+        if setclipboard then
+            setclipboard(text)
+            copied = true
+        end
+    end)
+
+    pcall(function()
+        if syn and syn.set_clipboard then
+            syn.set_clipboard(text)
+            copied = true
+        end
+    end)
+
+    pcall(function()
+        if set_clipboard then
+            set_clipboard(text)
+            copied = true
+        end
+    end)
+
+    pcall(function()
+        if writeclipboard then
+            writeclipboard(text)
+            copied = true
+        end
+    end)
+
+    return copied
+end
+
+local function showNotification(parent, message, duration)
+    local displayTime = duration or 1.8
+    local notificationLabel = Instance.new("TextLabel")
+    notificationLabel.Size = UDim2.new(0, 180, 0, 28)
+    notificationLabel.Position = UDim2.new(0.5, -90, 0, -40)
+    notificationLabel.AnchorPoint = Vector2.new(0.5, 0)
+    notificationLabel.BackgroundTransparency = 0
+    notificationLabel.BackgroundColor3 = Color3.new(0, 0, 0)
+    notificationLabel.TextColor3 = Color3.new(1, 1, 1)
+    notificationLabel.Text = message
+    notificationLabel.Font = Enum.Font.GothamBold
+    notificationLabel.TextSize = 14
+    notificationLabel.ZIndex = 1000
+
+    Instance.new("UICorner", notificationLabel).CornerRadius = UDim.new(0, 6)
+
+    notificationLabel.Parent = parent
+    notificationLabel.TextWrapped = true
+    notificationLabel.TextXAlignment = Enum.TextXAlignment.Center
+    notificationLabel.TextYAlignment = Enum.TextYAlignment.Center
+
+    task.spawn(function()
+        task.wait(displayTime)
+        pcall(function()
+            notificationLabel:Destroy()
+        end)
+    end)
+
+    return notificationLabel
+end
+
+local function showDiscordPrompt()
+    if not hasShownDiscordPrompt then
+        hasShownDiscordPrompt = true
+
+        local promptButton = Instance.new("TextButton")
+        promptButton.Size = UDim2.new(0, 280, 0, 40)
+        promptButton.Position = UDim2.new(0.5, 420, 0.95, -10)
+        promptButton.AnchorPoint = Vector2.new(0.5, 1)
+        promptButton.BackgroundColor3 = Color3.new(0, 0, 0)
+        promptButton.BackgroundTransparency = 0
+        promptButton.AutoButtonColor = false
+        promptButton.BorderSizePixel = 0
+        promptButton.ZIndex = 100
+        promptButton.Parent = delayAdjustGui
+
+        local promptCorner = Instance.new("UICorner")
+        promptCorner.CornerRadius = UDim.new(0, 8)
+        promptCorner.Parent = promptButton
+
+        local titleTextLabel = Instance.new("TextLabel")
+        titleTextLabel.Size = UDim2.new(0.98, 0, 0.5, 0)
+        titleTextLabel.Position = UDim2.new(0.01, 0, 0, 2)
+        titleTextLabel.BackgroundTransparency = 1
+        titleTextLabel.Text = "Made by Merebennie on YouTube"
+        titleTextLabel.Font = Enum.Font.GothamBold
+        titleTextLabel.TextSize = 13
+        titleTextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        titleTextLabel.TextXAlignment = Enum.TextXAlignment.Left
+        titleTextLabel.Parent = promptButton
+        titleTextLabel.ZIndex = 101
+
+        local descriptionTextLabel = Instance.new("TextLabel")
+        descriptionTextLabel.Size = UDim2.new(0.98, 0, 0.5, 0)
+        descriptionTextLabel.Position = UDim2.new(0.01, 0, 0.5, -2)
+        descriptionTextLabel.BackgroundTransparency = 1
+        descriptionTextLabel.Text = "Click me to join our discord server!"
+        descriptionTextLabel.Font = Enum.Font.Gotham
+        descriptionTextLabel.TextSize = 12
+        descriptionTextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        descriptionTextLabel.TextXAlignment = Enum.TextXAlignment.Left
+        descriptionTextLabel.Parent = promptButton
+        descriptionTextLabel.ZIndex = 101
+
+        local targetPositionShown = UDim2.new(0.5, 0, 0.95, -10)
+        local targetPositionHidden = UDim2.new(0.5, 420, 0.95, -10)
+
+        local tweenIn = tweenService:Create(
+            promptButton,
+            TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+            { Position = targetPositionShown }
+        )
+
+        local tweenOut = tweenService:Create(
+            promptButton,
+            TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In),
+            { Position = targetPositionHidden }
+        )
+
+        tweenIn:Play()
+
+        local isPromptVisible = true
+
+        promptButton.MouseButton1Click:Connect(function()
+            playClickSound(promptButton)
+
+            if copyToClipboard(discordInviteLink) then
+                showNotification(delayAdjustGui, "Successfully Copied", 1.8)
+            else
+                showNotification(delayAdjustGui, "Copied to clipboard failed on this executor", 2.6)
+            end
+        end)
+
+        task.spawn(function()
+            task.wait(4.7)
+            if isPromptVisible then
+                tweenOut:Play()
+                task.wait(0.32)
+                pcall(function()
+                    promptButton:Destroy()
+                end)
+                isPromptVisible = false
+            end
+        end)
+
+        return promptButton
+    end
+end
+
+delayTitleLabel.InputBegan:Connect(function(inputObject, gameProcessed)
+    if not gameProcessed then
+        if inputObject.UserInputType == Enum.UserInputType.MouseButton1 or inputObject.UserInputType == Enum.UserInputType.Touch then
+            showDiscordPrompt()
+        end
+    end
+end)
+
+task.spawn(showDiscordPrompt)

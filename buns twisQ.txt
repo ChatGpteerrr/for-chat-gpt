@@ -1,0 +1,196 @@
+local TweenService = game:GetService("TweenService")
+local localPlayer = game:GetService("Players").LocalPlayer
+
+local twitQGui = Instance.new("ScreenGui")
+twitQGui.Name = "TwitQ"
+twitQGui.ResetOnSpawn = false
+twitQGui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+local watermarkLabel = Instance.new("TextLabel")
+watermarkLabel.Name = "Watermark"
+watermarkLabel.Parent = twitQGui
+watermarkLabel.Size = UDim2.new(0, 200, 0, 25)
+watermarkLabel.Position = UDim2.new(0.5, -100, 0.01, 0)
+watermarkLabel.BackgroundTransparency = 1
+watermarkLabel.Text = "Made by Merebennie"
+watermarkLabel.Font = Enum.Font.GothamSemibold
+watermarkLabel.TextSize = 13
+watermarkLabel.TextColor3 = Color3.fromRGB(180, 180, 255)
+watermarkLabel.TextStrokeTransparency = 0.3
+watermarkLabel.TextStrokeColor3 = Color3.fromRGB(60, 60, 100)
+
+local function dashForward()
+    local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        local humanoidRootPart = character.HumanoidRootPart
+        local dashTargetCFrame = humanoidRootPart.CFrame * CFrame.new(0, 0, 5)
+        local dashTween = TweenService:Create(
+            humanoidRootPart,
+            TweenInfo.new(0.1, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+            { CFrame = dashTargetCFrame }
+        )
+        dashTween:Play()
+        dashTween.Completed:Connect(function()
+            local communicateRemote = character:FindFirstChild("Communicate")
+            if communicateRemote then
+                communicateRemote:FireServer({
+                    Dash = Enum.KeyCode.W,
+                    Key = Enum.KeyCode.Q,
+                    Goal = "KeyPress"
+                })
+            end
+        end)
+    end
+end
+
+local function showUIWithSlideUp(uiObject)
+    uiObject.Position = UDim2.new(0.5, -uiObject.Size.X.Offset / 2, 1, 0)
+    uiObject.Visible = true
+    TweenService:Create(
+        uiObject,
+        TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        { Position = UDim2.new(0.5, -uiObject.Size.X.Offset / 2, 0.78, 0) }
+    ):Play()
+end
+
+local mainUIFrame = Instance.new("Frame")
+mainUIFrame.Name = "MainUI"
+mainUIFrame.Size = UDim2.new(0, 170, 0, 80)
+mainUIFrame.Position = UDim2.new(0.5, -85, 1, 0)
+mainUIFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 40)
+mainUIFrame.BorderSizePixel = 2
+mainUIFrame.BorderColor3 = Color3.fromRGB(100, 100, 255)
+mainUIFrame.Active = true
+mainUIFrame.Draggable = true
+mainUIFrame.Selectable = true
+mainUIFrame.Visible = false
+mainUIFrame.Parent = twitQGui
+
+local mainUICorner = Instance.new("UICorner")
+mainUICorner.CornerRadius = UDim.new(0, 12)
+mainUICorner.Parent = mainUIFrame
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Parent = mainUIFrame
+titleLabel.Size = UDim2.new(1, 0, 0.4, 0)
+titleLabel.Position = UDim2.new(0, 0, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "TwitQ"
+titleLabel.Font = Enum.Font.GothamBlack
+titleLabel.TextSize = 16
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextStrokeTransparency = 0
+titleLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+titleLabel.TextScaled = true
+titleLabel.TextWrapped = true
+
+local dashButton = Instance.new("TextButton")
+dashButton.Name = "DashButton"
+dashButton.Parent = mainUIFrame
+dashButton.Size = UDim2.new(0.85, 0, 0.4, 0)
+dashButton.Position = UDim2.new(0.075, 0, 0.5, 0)
+dashButton.Text = "Dash Activate"
+dashButton.Font = Enum.Font.GothamBold
+dashButton.TextSize = 14
+dashButton.BackgroundColor3 = Color3.fromRGB(80, 160, 255)
+dashButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+dashButton.TextStrokeTransparency = 0.3
+dashButton.TextStrokeColor3 = Color3.fromRGB(20, 20, 80)
+dashButton.AutoButtonColor = true
+
+local dashButtonCorner = Instance.new("UICorner")
+dashButtonCorner.CornerRadius = UDim.new(0, 6)
+dashButtonCorner.Parent = dashButton
+
+dashButton.MouseButton1Click:Connect(dashForward)
+
+local function createCompactUI()
+    if twitQGui:FindFirstChild("MainUI") then
+        twitQGui.MainUI:Destroy()
+    end
+
+    local compactUIButton = Instance.new("TextButton")
+    compactUIButton.Size = UDim2.new(0, 110, 0, 35)
+    compactUIButton.Position = UDim2.new(0.5, -55, 1, 0)
+    compactUIButton.BackgroundColor3 = Color3.fromRGB(20, 40, 80)
+    compactUIButton.BorderSizePixel = 2
+    compactUIButton.BorderColor3 = Color3.fromRGB(120, 180, 255)
+    compactUIButton.Text = "TwitQ"
+    compactUIButton.Font = Enum.Font.GothamBold
+    compactUIButton.TextSize = 16
+    compactUIButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    compactUIButton.TextStrokeTransparency = 0.2
+    compactUIButton.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    compactUIButton.Name = "CompactUI"
+    compactUIButton.Active = true
+    compactUIButton.Draggable = true
+    compactUIButton.Selectable = true
+    compactUIButton.Visible = false
+    compactUIButton.Parent = twitQGui
+
+    local compactUICorner = Instance.new("UICorner")
+    compactUICorner.CornerRadius = UDim.new(0, 8)
+    compactUICorner.Parent = compactUIButton
+
+    compactUIButton.MouseButton1Click:Connect(dashForward)
+    showUIWithSlideUp(compactUIButton)
+end
+
+local switchUIFrame = Instance.new("Frame")
+switchUIFrame.Size = UDim2.new(0, 170, 0, 50)
+switchUIFrame.Position = UDim2.new(1, -180, 1, -70)
+switchUIFrame.AnchorPoint = Vector2.new(0, 1)
+switchUIFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+switchUIFrame.BorderSizePixel = 0
+switchUIFrame.Parent = twitQGui
+
+local switchUICorner = Instance.new("UICorner")
+switchUICorner.CornerRadius = UDim.new(0, 10)
+switchUICorner.Parent = switchUIFrame
+
+local switchPromptLabel = Instance.new("TextLabel")
+switchPromptLabel.Size = UDim2.new(1, -10, 0.5, 0)
+switchPromptLabel.Position = UDim2.new(0, 5, 0, 2)
+switchPromptLabel.Text = "Switch to Compact UI?"
+switchPromptLabel.TextWrapped = true
+switchPromptLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+switchPromptLabel.BackgroundTransparency = 1
+switchPromptLabel.Font = Enum.Font.Gotham
+switchPromptLabel.TextSize = 13
+switchPromptLabel.Parent = switchUIFrame
+
+local yesSwitchButton = Instance.new("TextButton")
+yesSwitchButton.Size = UDim2.new(0.45, 0, 0.4, 0)
+yesSwitchButton.Position = UDim2.new(0.05, 0, 0.55, 0)
+yesSwitchButton.Text = "Yes"
+yesSwitchButton.Font = Enum.Font.GothamBold
+yesSwitchButton.TextSize = 13
+yesSwitchButton.BackgroundColor3 = Color3.fromRGB(0, 200, 150)
+yesSwitchButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+yesSwitchButton.Parent = switchUIFrame
+
+local noSwitchButton = Instance.new("TextButton")
+noSwitchButton.Size = UDim2.new(0.45, 0, 0.4, 0)
+noSwitchButton.Position = UDim2.new(0.5, 0, 0.55, 0)
+noSwitchButton.Text = "No"
+noSwitchButton.Font = Enum.Font.GothamBold
+noSwitchButton.TextSize = 13
+noSwitchButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+noSwitchButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+noSwitchButton.Parent = switchUIFrame
+
+local function closeSwitchPrompt()
+    switchUIFrame:Destroy()
+end
+
+yesSwitchButton.MouseButton1Click:Connect(function()
+    closeSwitchPrompt()
+    createCompactUI()
+end)
+
+noSwitchButton.MouseButton1Click:Connect(function()
+    closeSwitchPrompt()
+    showUIWithSlideUp(mainUIFrame)
+end)
+
+showUIWithSlideUp(mainUIFrame)

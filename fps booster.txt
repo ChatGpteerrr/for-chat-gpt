@@ -1,0 +1,304 @@
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
+
+local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+
+local optimizerGui = Instance.new("ScreenGui")
+optimizerGui.Name = "OptiUI"
+optimizerGui.ResetOnSpawn = false
+optimizerGui.Parent = playerGui
+
+local creditLabel = Instance.new("TextLabel")
+creditLabel.Size = UDim2.new(0, 200, 0, 12)
+creditLabel.Position = UDim2.new(0.5, -100, 0, 2)
+creditLabel.BackgroundTransparency = 1
+creditLabel.Text = "Made by Merebennie"
+creditLabel.Font = Enum.Font.Code
+creditLabel.TextSize = 10
+creditLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+creditLabel.TextStrokeTransparency = 0.8
+creditLabel.Parent = optimizerGui
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 200, 0, 360)
+mainFrame.Position = UDim2.new(0, 50, 0, 100)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.BackgroundTransparency = 0.1
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = optimizerGui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 12)
+mainCorner.Parent = mainFrame
+
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 24)
+titleBar.BackgroundTransparency = 1
+titleBar.Parent = mainFrame
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -30, 1, 0)
+titleLabel.Position = UDim2.new(0, 0, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Optimizer"
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextSize = 18
+titleLabel.TextColor3 = Color3.new(1, 1, 1)
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = titleBar
+
+local minimizeButton = Instance.new("TextButton")
+minimizeButton.Size = UDim2.new(0, 24, 0, 24)
+minimizeButton.Position = UDim2.new(1, -24, 0, 0)
+minimizeButton.BackgroundTransparency = 1
+minimizeButton.Text = "\239\191\189\239\191\189"
+minimizeButton.Font = Enum.Font.GothamBold
+minimizeButton.TextSize = 20
+minimizeButton.TextColor3 = Color3.new(1, 1, 1)
+minimizeButton.Parent = titleBar
+
+local contentFrame = Instance.new("Frame")
+contentFrame.Size = UDim2.new(1, 0, 1, -24)
+contentFrame.Position = UDim2.new(0, 0, 0, 24)
+contentFrame.BackgroundTransparency = 1
+contentFrame.Parent = mainFrame
+
+local masterToggleButton = Instance.new("TextButton")
+masterToggleButton.Name = "MasterToggle"
+masterToggleButton.Size = UDim2.new(1, -20, 0, 30)
+masterToggleButton.Position = UDim2.new(0, 10, 0, 0)
+masterToggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+masterToggleButton.Text = "OFF"
+masterToggleButton.Font = Enum.Font.GothamSemibold
+masterToggleButton.TextSize = 16
+masterToggleButton.TextColor3 = Color3.new(1, 0, 0)
+masterToggleButton.Parent = contentFrame
+
+local masterToggleCorner = Instance.new("UICorner")
+masterToggleCorner.CornerRadius = UDim.new(0, 8)
+masterToggleCorner.Parent = masterToggleButton
+
+local isMasterEnabled = false
+local masterToggleCallbacks = {}
+
+masterToggleButton.MouseButton1Click:Connect(function()
+    isMasterEnabled = not isMasterEnabled
+
+    if isMasterEnabled then
+        masterToggleButton.Text = "ON"
+        masterToggleButton.TextColor3 = Color3.new(0, 1, 0)
+        for _, callback in ipairs(masterToggleCallbacks) do
+            callback(true)
+        end
+    else
+        masterToggleButton.Text = "OFF"
+        masterToggleButton.TextColor3 = Color3.new(1, 0, 0)
+        for _, callback in ipairs(masterToggleCallbacks) do
+            callback(false)
+        end
+    end
+end)
+
+local optionsScroll = Instance.new("ScrollingFrame")
+optionsScroll.Name = "OptionsScroll"
+optionsScroll.Size = UDim2.new(1, -20, 1, -120)
+optionsScroll.Position = UDim2.new(0, 10, 0, 40)
+optionsScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+optionsScroll.BackgroundTransparency = 1
+optionsScroll.BorderSizePixel = 0
+optionsScroll.ScrollBarThickness = 6
+optionsScroll.Parent = contentFrame
+
+local optionsLayout = Instance.new("UIListLayout")
+optionsLayout.Parent = optionsScroll
+optionsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+optionsLayout.Padding = UDim.new(0, 6)
+
+local fpsLabel = Instance.new("TextLabel")
+fpsLabel.Size = UDim2.new(1, -20, 0, 20)
+fpsLabel.Position = UDim2.new(0, 10, 1, -30)
+fpsLabel.BackgroundTransparency = 1
+fpsLabel.Text = "FPS: 0"
+fpsLabel.Font = Enum.Font.Gotham
+fpsLabel.TextSize = 14
+fpsLabel.TextColor3 = Color3.new(1, 1, 1)
+fpsLabel.TextXAlignment = Enum.TextXAlignment.Left
+fpsLabel.Parent = contentFrame
+
+local lastFpsUpdate = tick()
+local frameCount = 0
+
+RunService.RenderStepped:Connect(function()
+    frameCount = frameCount + 1
+    local now = tick()
+
+    if now - lastFpsUpdate >= 1 then
+        fpsLabel.Text = "FPS: " .. frameCount
+        frameCount = 0
+        lastFpsUpdate = now
+    end
+end)
+
+local isMinimized = false
+
+minimizeButton.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    contentFrame.Visible = not isMinimized
+    minimizeButton.Text = isMinimized and "+" or "\239\191\189\239\191\189"
+    mainFrame.Size = isMinimized and UDim2.new(0, 200, 0, 24) or UDim2.new(0, 200, 0, 360)
+end)
+
+local function createOptionToggle(optionName, applyOptionState)
+    local optionButton = Instance.new("TextButton")
+    optionButton.Size = UDim2.new(1, 0, 0, 28)
+    optionButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    optionButton.Text = optionName .. ": OFF"
+    optionButton.Font = Enum.Font.Gotham
+    optionButton.TextSize = 14
+    optionButton.TextColor3 = Color3.new(1, 1, 1)
+    optionButton.Parent = optionsScroll
+
+    local optionCorner = Instance.new("UICorner")
+    optionCorner.CornerRadius = UDim.new(0, 6)
+    optionCorner.Parent = optionButton
+
+    local isOptionEnabled = false
+
+    optionButton.MouseButton1Click:Connect(function()
+        isOptionEnabled = not isOptionEnabled
+        optionButton.TextColor3 = isOptionEnabled and Color3.new(0, 1, 0) or Color3.new(1, 1, 1)
+        optionButton.Text = optionName .. (isOptionEnabled and ": ON" or ": OFF")
+        applyOptionState(isOptionEnabled)
+    end)
+
+    masterToggleCallbacks[#masterToggleCallbacks + 1] = function(masterState)
+        if masterState then
+            applyOptionState(isOptionEnabled)
+        else
+            applyOptionState(false)
+        end
+    end
+
+    optionsScroll.CanvasSize = UDim2.new(0, 0, 0, optionsLayout.AbsoluteContentSize.Y + 10)
+end
+
+local function setGlobalShadowsEnabled(isEnabled)
+    Lighting.GlobalShadows = isEnabled
+end
+
+local function removeAccessoriesFromAllPlayers()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Character then
+            for _, characterChild in pairs(player.Character:GetChildren()) do
+                if characterChild:IsA("Accessory") then
+                    characterChild:Destroy()
+                end
+            end
+        end
+    end
+end
+
+local function recreateMinimalSky(isEnabled)
+    if isEnabled then
+        Lighting:ClearAllChildren()
+        Instance.new("Sky", Lighting)
+    end
+end
+
+local function applyNightMode(isNight)
+    if isNight then
+        Lighting.TimeOfDay = "00:00:00"
+        Lighting.Brightness = 0.2
+        Lighting.Ambient = Color3.fromRGB(10, 10, 20)
+    else
+        Lighting.TimeOfDay = "12:00:00"
+        Lighting.Brightness = 2
+        Lighting.Ambient = Color3.fromRGB(128, 128, 128)
+    end
+end
+
+createOptionToggle("Disable Shadows", function(isDisabled)
+    setGlobalShadowsEnabled(not isDisabled)
+end)
+
+createOptionToggle("Disable Meshes", function()
+    for _, descendant in pairs(workspace:GetDescendants()) do
+        if descendant:IsA("MeshPart") or descendant:IsA("SpecialMesh") then
+            descendant:Destroy()
+        end
+    end
+end)
+
+createOptionToggle("Disable Textures", function()
+    for _, descendant in pairs(workspace:GetDescendants()) do
+        if descendant:IsA("Texture") or descendant:IsA("Decal") then
+            descendant:Destroy()
+        end
+    end
+end)
+
+createOptionToggle("Low Poly", function(isEnabled)
+    if isEnabled then
+        for _, descendant in pairs(workspace:GetDescendants()) do
+            if descendant:IsA("BasePart") then
+                descendant.Material = Enum.Material.Plastic
+                descendant.Reflectance = 0
+            end
+        end
+    end
+end)
+
+createOptionToggle("Remove Accessories", function()
+    removeAccessoriesFromAllPlayers()
+end)
+
+createOptionToggle("Disable Sky", function(isEnabled)
+    recreateMinimalSky(isEnabled)
+end)
+
+createOptionToggle("Night Mode", function(isEnabled)
+    applyNightMode(isEnabled)
+end)
+
+local function setTrailsDisabled(isDisabled)
+    for _, descendant in pairs(workspace:GetDescendants()) do
+        if descendant:IsA("Trail") then
+            descendant.Enabled = not isDisabled
+        end
+    end
+end
+
+createOptionToggle("Disable Trails", function(isDisabled)
+    setTrailsDisabled(isDisabled)
+end)
+
+local sweepWorkspaceButton = Instance.new("TextButton")
+sweepWorkspaceButton.Size = UDim2.new(1, 0, 0, 32)
+sweepWorkspaceButton.BackgroundColor3 = Color3.fromRGB(80, 30, 30)
+sweepWorkspaceButton.Text = "Sweep Workspace"
+sweepWorkspaceButton.Font = Enum.Font.GothamBold
+sweepWorkspaceButton.TextSize = 16
+sweepWorkspaceButton.TextColor3 = Color3.new(1, 1, 1)
+sweepWorkspaceButton.LayoutOrder = 100
+sweepWorkspaceButton.Parent = optionsScroll
+
+local sweepWorkspaceCorner = Instance.new("UICorner")
+sweepWorkspaceCorner.CornerRadius = UDim.new(0, 6)
+sweepWorkspaceCorner.Parent = sweepWorkspaceButton
+
+sweepWorkspaceButton.MouseButton1Click:Connect(function()
+    for _, descendant in pairs(workspace:GetDescendants()) do
+        if descendant:IsA("Terrain")
+            or descendant:IsA("Decal")
+            or descendant:IsA("Texture")
+            or descendant:IsA("ParticleEmitter") then
+            descendant:Destroy()
+        end
+    end
+end)
+
+optionsScroll.CanvasSize = UDim2.new(0, 0, 0, optionsLayout.AbsoluteContentSize.Y + sweepWorkspaceButton.Size.Y.Offset + 20)

@@ -1,0 +1,194 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local TweenService = game:GetService("TweenService")
+
+local localPlayer = Players.LocalPlayer
+local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+local maxTargetDistance = 300
+
+local loopDashScreenGui = Instance.new("ScreenGui")
+loopDashScreenGui.Name = "LoopDashGUI"
+loopDashScreenGui.ResetOnSpawn = false
+loopDashScreenGui.Parent = game:GetService("CoreGui")
+
+local splashTextLabel = Instance.new("TextLabel")
+splashTextLabel.Size = UDim2.new(1, 0, 1, 0)
+splashTextLabel.Position = UDim2.new(0, 0, 0, 0)
+splashTextLabel.BackgroundTransparency = 1
+splashTextLabel.Text = "Made by Merebennie"
+splashTextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+splashTextLabel.Font = Enum.Font.GothamBold
+splashTextLabel.TextScaled = true
+splashTextLabel.TextTransparency = 0
+splashTextLabel.Parent = loopDashScreenGui
+
+local cornerTextLabel = Instance.new("TextLabel")
+cornerTextLabel.Size = UDim2.new(0, 200, 0, 50)
+cornerTextLabel.Position = UDim2.new(0.5, -100, 0, 10)
+cornerTextLabel.BackgroundTransparency = 1
+cornerTextLabel.Text = "Made by Merebennie"
+cornerTextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+cornerTextLabel.Font = Enum.Font.GothamBold
+cornerTextLabel.TextTransparency = 1
+cornerTextLabel.TextScaled = true
+cornerTextLabel.ZIndex = 10
+cornerTextLabel.Parent = loopDashScreenGui
+
+task.spawn(function()
+    task.wait(0.5)
+    local fadeInTween = TweenService:Create(
+        splashTextLabel,
+        TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {
+            TextTransparency = 0
+        }
+    )
+    fadeInTween:Play()
+    fadeInTween.Completed:Wait()
+
+    task.wait(1)
+
+    local moveToCornerTween = TweenService:Create(
+        splashTextLabel,
+        TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+        {
+            TextTransparency = 1,
+            Size = UDim2.new(0, 120, 0, 25),
+            Position = UDim2.new(0, 10, 0, 10)
+        }
+    )
+    moveToCornerTween:Play()
+    moveToCornerTween.Completed:Wait()
+
+    cornerTextLabel.TextTransparency = 0.2
+    cornerTextLabel.Size = UDim2.new(0, 120, 0, 20)
+    cornerTextLabel.Position = UDim2.new(0, 10, 0, 10)
+end)
+
+local loopDashFrame = Instance.new("Frame")
+loopDashFrame.Size = UDim2.new(0, 200, 0, 60)
+loopDashFrame.Position = UDim2.new(0, 20, 0, 20)
+loopDashFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 50)
+loopDashFrame.BorderSizePixel = 0
+loopDashFrame.BackgroundTransparency = 0.1
+loopDashFrame.Active = true
+loopDashFrame.Draggable = true
+loopDashFrame.Parent = loopDashScreenGui
+
+local loopDashFrameCorner = Instance.new("UICorner")
+loopDashFrameCorner.CornerRadius = UDim.new(0, 10)
+loopDashFrameCorner.Parent = loopDashFrame
+
+local loopDashFrameStroke = Instance.new("UIStroke")
+loopDashFrameStroke.Thickness = 2
+loopDashFrameStroke.Color = Color3.fromRGB(100, 100, 255)
+loopDashFrameStroke.Parent = loopDashFrame
+
+local loopDashTitleLabel = Instance.new("TextLabel")
+loopDashTitleLabel.Size = UDim2.new(1, 0, 0.4, 0)
+loopDashTitleLabel.Position = UDim2.new(0, 0, 0, 0)
+loopDashTitleLabel.BackgroundTransparency = 1
+loopDashTitleLabel.Text = "Loop Dash"
+loopDashTitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+loopDashTitleLabel.Font = Enum.Font.GothamBold
+loopDashTitleLabel.TextSize = 20
+loopDashTitleLabel.Parent = loopDashFrame
+
+local activateLoopDashButton = Instance.new("TextButton")
+activateLoopDashButton.Size = UDim2.new(0.8, 0, 0.4, 0)
+activateLoopDashButton.Position = UDim2.new(0.1, 0, 0.5, 0)
+activateLoopDashButton.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
+activateLoopDashButton.TextColor3 = Color3.new(1, 1, 1)
+activateLoopDashButton.Text = "Activate"
+activateLoopDashButton.Font = Enum.Font.GothamBold
+activateLoopDashButton.TextSize = 18
+activateLoopDashButton.BorderSizePixel = 0
+activateLoopDashButton.AutoButtonColor = true
+activateLoopDashButton.Parent = loopDashFrame
+
+local activateButtonCorner = Instance.new("UICorner")
+activateButtonCorner.CornerRadius = UDim.new(0, 6)
+activateButtonCorner.Parent = activateLoopDashButton
+
+local function findNearestTargetPart()
+    local closestTargetPart = nil
+    local closestDistance = maxTargetDistance
+    local currentCharacter = character
+
+    local rootPart = nil
+    if currentCharacter then
+        rootPart = currentCharacter:FindFirstChild("HumanoidRootPart")
+    end
+
+    if not rootPart then
+        return nil
+    end
+
+    for _, descendant in ipairs(workspace:GetDescendants()) do
+        if descendant:IsA("Model") and descendant ~= currentCharacter then
+            local humanoid = descendant:FindFirstChildOfClass("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                for _, part in ipairs(descendant:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        local distance = (rootPart.Position - part.Position).Magnitude
+                        if distance < closestDistance then
+                            closestTargetPart = part
+                            closestDistance = distance
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return closestTargetPart
+end
+
+local function activateLoopDash()
+    character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+    humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+    local targetPart = findNearestTargetPart()
+
+    for _ = 1, 3 do
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Q, false, game)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Q, false, game)
+        task.wait(0.05)
+    end
+
+    local elapsedTime = 0
+    local spinDuration = 0.3
+    local retargetStartTime = 0.26
+    local retargetDuration = 0.35
+    local retargetConnection
+
+    retargetConnection = RunService.RenderStepped:Connect(function(deltaTime)
+        elapsedTime = elapsedTime + deltaTime
+
+        if elapsedTime < spinDuration then
+            local rotationStep = math.rad(360) * (deltaTime / spinDuration)
+            humanoidRootPart.CFrame = humanoidRootPart.CFrame * CFrame.Angles(0, rotationStep, 0)
+        end
+
+        if targetPart and (retargetStartTime <= elapsedTime and elapsedTime <= retargetStartTime + retargetDuration) then
+            local lookVectorPosition = Vector3.new(targetPart.Position.X, humanoidRootPart.Position.Y, targetPart.Position.Z)
+            humanoidRootPart.CFrame = CFrame.new(humanoidRootPart.Position, lookVectorPosition)
+        end
+
+        if elapsedTime >= retargetStartTime + retargetDuration and elapsedTime >= spinDuration then
+            if retargetConnection then
+                retargetConnection:Disconnect()
+            end
+        end
+    end)
+end
+
+activateLoopDashButton.MouseButton1Click:Connect(activateLoopDash)
+
+localPlayer.CharacterAdded:Connect(function(newCharacter)
+    character = newCharacter
+    humanoidRootPart = newCharacter:WaitForChild("HumanoidRootPart")
+end)

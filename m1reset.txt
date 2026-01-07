@@ -1,0 +1,201 @@
+local TweenService = game:GetService("TweenService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+local Settings = {
+    QHoldTime = 0.19,
+    CamBackDelay = 0.1,
+    CamBackAngle = 85
+}
+
+local function sendKeyDown(keyCode)
+    pcall(function()
+        VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
+    end)
+end
+
+local function sendKeyUp(keyCode)
+    pcall(function()
+        VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
+    end)
+end
+
+local function rotateCameraBack()
+    if Camera then
+        Camera.CFrame = Camera.CFrame * CFrame.Angles(0, math.rad(Settings.CamBackAngle), 0)
+    end
+end
+
+local function fireDashRemote()
+    local dashSequence = {
+        {
+            Dash = Enum.KeyCode.W,
+            Key = Enum.KeyCode.Q,
+            Goal = "KeyPress"
+        }
+    }
+
+    local character = LocalPlayer.Character
+    if character and character:FindFirstChild("Communicate") then
+        character.Communicate:FireServer(unpack(dashSequence))
+    end
+end
+
+local function tweenRootPartSideways(distance, duration)
+    local character = LocalPlayer.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        local rootPart = character.HumanoidRootPart
+        local movementOffset = rootPart.CFrame.RightVector * distance
+        local targetFrame = rootPart.CFrame + movementOffset
+
+        TweenService:Create(
+            rootPart,
+            TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+            {
+                CFrame = CFrame.new(targetFrame.Position, targetFrame.Position + rootPart.CFrame.LookVector)
+            }
+        ):Play()
+    end
+end
+
+local m1ResetGui = Instance.new("ScreenGui")
+m1ResetGui.Name = "M1ResetUI"
+m1ResetGui.ResetOnSpawn = false
+m1ResetGui.IgnoreGuiInset = false
+m1ResetGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+pcall(function()
+    m1ResetGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end)
+
+local watermarkLabel = Instance.new("TextLabel")
+watermarkLabel.Parent = m1ResetGui
+watermarkLabel.Size = UDim2.new(0, 180, 0, 30)
+watermarkLabel.Position = UDim2.new(0.5, -90, 0.01, 0)
+watermarkLabel.BackgroundTransparency = 1
+watermarkLabel.Text = "Made by Merebennie"
+watermarkLabel.TextColor3 = Color3.new(1, 1, 1)
+watermarkLabel.TextTransparency = 0.2
+watermarkLabel.Font = Enum.Font.Cartoon
+watermarkLabel.TextScaled = true
+watermarkLabel.TextStrokeTransparency = 0.4
+watermarkLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+
+local resetButton = Instance.new("TextButton")
+resetButton.Parent = m1ResetGui
+resetButton.Size = UDim2.new(0, 100, 0, 40)
+resetButton.Position = UDim2.new(0.5, -50, 0.5, -20)
+resetButton.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
+resetButton.Text = "M1 Reset"
+resetButton.TextColor3 = Color3.new(1, 1, 1)
+resetButton.TextScaled = true
+resetButton.Font = Enum.Font.GothamBold
+resetButton.Active = true
+resetButton.Draggable = true
+
+local resetButtonCorner = Instance.new("UICorner")
+resetButtonCorner.Parent = resetButton
+resetButtonCorner.CornerRadius = UDim.new(0, 8)
+
+resetButton.MouseButton1Click:Connect(function()
+    sendKeyDown(Enum.KeyCode.D)
+    sendKeyDown(Enum.KeyCode.Q)
+
+    tweenRootPartSideways(12, 0.1)
+
+    task.wait(Settings.QHoldTime)
+
+    sendKeyUp(Enum.KeyCode.D)
+    sendKeyUp(Enum.KeyCode.Q)
+
+    task.wait(Settings.CamBackDelay)
+
+    rotateCameraBack()
+    fireDashRemote()
+end)
+
+local settingsFrame = Instance.new("Frame")
+settingsFrame.Parent = m1ResetGui
+settingsFrame.Size = UDim2.new(0, 190, 0, 155)
+settingsFrame.Position = UDim2.new(0, 20, 0.3, 0)
+settingsFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+settingsFrame.BorderSizePixel = 0
+settingsFrame.Visible = true
+
+local settingsFrameCorner = Instance.new("UICorner")
+settingsFrameCorner.Parent = settingsFrame
+settingsFrameCorner.CornerRadius = UDim.new(0, 8)
+
+local openSettingsButton = Instance.new("TextButton")
+openSettingsButton.Parent = m1ResetGui
+openSettingsButton.Size = UDim2.new(0, 25, 0, 25)
+openSettingsButton.Position = UDim2.new(0, 10, 0.3, 0)
+openSettingsButton.Text = ">"
+openSettingsButton.BackgroundColor3 = Color3.fromRGB(50, 50, 80)
+openSettingsButton.TextColor3 = Color3.new(1, 1, 1)
+openSettingsButton.TextScaled = true
+openSettingsButton.Font = Enum.Font.GothamBold
+openSettingsButton.Visible = false
+
+local openSettingsCorner = Instance.new("UICorner")
+openSettingsCorner.Parent = openSettingsButton
+openSettingsCorner.CornerRadius = UDim.new(0, 6)
+
+openSettingsButton.MouseButton1Click:Connect(function()
+    settingsFrame.Visible = true
+    openSettingsButton.Visible = false
+end)
+
+local closeSettingsButton = Instance.new("TextButton")
+closeSettingsButton.Parent = settingsFrame
+closeSettingsButton.Size = UDim2.new(0, 25, 0, 25)
+closeSettingsButton.Position = UDim2.new(1, -30, 0, 5)
+closeSettingsButton.Text = "-"
+closeSettingsButton.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+closeSettingsButton.TextColor3 = Color3.new(1, 1, 1)
+closeSettingsButton.TextScaled = true
+closeSettingsButton.Font = Enum.Font.GothamBold
+
+closeSettingsButton.MouseButton1Click:Connect(function()
+    settingsFrame.Visible = false
+    openSettingsButton.Visible = true
+end)
+
+local function createSettingsControl(settingLabel, settingKey, yOffset)
+    local settingTextLabel = Instance.new("TextLabel")
+    settingTextLabel.Parent = settingsFrame
+    settingTextLabel.Position = UDim2.new(0, 10, 0, yOffset)
+    settingTextLabel.Size = UDim2.new(0, 160, 0, 18)
+    settingTextLabel.BackgroundTransparency = 1
+    settingTextLabel.TextColor3 = Color3.new(1, 1, 1)
+    settingTextLabel.Text = settingLabel .. ": " .. tostring(Settings[settingKey])
+    settingTextLabel.TextScaled = true
+    settingTextLabel.Font = Enum.Font.GothamMedium
+
+    local settingTextBox = Instance.new("TextBox")
+    settingTextBox.Parent = settingsFrame
+    settingTextBox.Position = UDim2.new(0, 10, 0, yOffset + 20)
+    settingTextBox.Size = UDim2.new(0, 160, 0, 25)
+    settingTextBox.BackgroundColor3 = Color3.fromRGB(50, 50, 90)
+    settingTextBox.TextColor3 = Color3.new(1, 1, 1)
+    settingTextBox.TextScaled = true
+    settingTextBox.Font = Enum.Font.GothamBold
+    settingTextBox.Text = tostring(Settings[settingKey])
+
+    settingTextBox.FocusLost:Connect(function()
+        local newValue = tonumber(settingTextBox.Text)
+        if newValue then
+            Settings[settingKey] = newValue
+            settingTextLabel.Text = settingLabel .. ": " .. tostring(newValue)
+        else
+            settingTextBox.Text = tostring(Settings[settingKey])
+        end
+    end)
+end
+
+createSettingsControl("Q Hold Time", "QHoldTime", 5)
+createSettingsControl("Camera Delay", "CamBackDelay", 55)
+createSettingsControl("Camera Angle", "CamBackAngle", 105)

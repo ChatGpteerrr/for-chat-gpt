@@ -1,0 +1,531 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local Character, Humanoid, RootPart = nil, nil, nil
+local lastDashTime = 0
+local dashDelay = 0.35
+local isEnabled = true
+local isCoolingDown = false
+local cooldownDuration = 4
+local discordLink = "https://discord.gg/RsxcaHhRqb"
+
+local function findNearestPlayer()
+    local nearestDistance = 20
+    local nearestPlayer = nil
+    
+    if not RootPart then return nil end
+    
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") and obj ~= Character then
+            local success, distance = pcall(function()
+                return (RootPart.Position - obj.HumanoidRootPart.Position).Magnitude
+            end)
+            if success and distance and distance < nearestDistance then
+                nearestDistance = distance
+                nearestPlayer = obj
+            end
+        end
+    end
+    
+    return nearestPlayer
+end
+
+local function sendRemoteEvents()
+    pcall(function()
+        local dashData = {
+            [1] = {
+                Dash = Enum.KeyCode.W,
+                Key = Enum.KeyCode.Q,
+                Goal = "KeyPress"
+            }
+        }
+        if Character and Character:FindFirstChild("Communicate") then
+            Character.Communicate:FireServer(unpack(dashData))
+        end
+    end)
+    
+    local function findNilInstance(name, className)
+        for _, instance in pairs(getnilinstances()) do
+            if instance.ClassName == className and instance.Name == name then
+                return instance
+            end
+        end
+    end
+    
+    pcall(function()
+        local deleteData = {
+            [1] = {
+                Goal = "delete bv",
+                BV = findNilInstance("moveme", "BodyVelocity")
+            }
+        }
+        if Character and Character:FindFirstChild("Communicate") then
+            Character.Communicate:FireServer(unpack(deleteData))
+        end
+    end)
+end
+
+local function executeDash()
+    if not Character or not Humanoid or not RootPart then return end
+    
+    local target = findNearestPlayer()
+    if not target then return end
+    
+    local targetRoot = target:FindFirstChild("HumanoidRootPart")
+    if not targetRoot then return end
+    
+    local originalStats = {}
+    pcall(function()
+        originalStats.WalkSpeed = Humanoid.WalkSpeed
+        originalStats.JumpPower = Humanoid.JumpPower
+        originalStats.PlatformStand = Humanoid.PlatformStand
+        if Humanoid:GetAttribute("AutoRotate") == nil then
+            pcall(function()
+                originalStats.AutoRotate = Humanoid.AutoRotate
+            end)
+        else
+            originalStats.AutoRotate = Humanoid.AutoRotate
+        end
+    end)
+    
+    local heartbeatConnection = nil
+    
+    local function restoreStats()
+        if heartbeatConnection and heartbeatConnection.Disconnect then
+            pcall(function()
+                heartbeatConnection:Disconnect()
+            end)
+        end
+        pcall(function()
+            if Humanoid then
+                Humanoid.WalkSpeed = originalStats.WalkSpeed or 16
+                Humanoid.JumpPower = originalStats.JumpPower or 50
+                Humanoid.PlatformStand = originalStats.PlatformStand or false
+                if originalStats.AutoRotate ~= nil then
+                    pcall(function()
+                        Humanoid.AutoRotate = originalStats.AutoRotate
+                    end)
+                end
+            end
+            if RootPart then
+                RootPart.Velocity = Vector3.new(0, 0, 0)
+                RootPart.RotVelocity = Vector3.new(0, 0, 0)
+            end
+        end)
+    end
+    
+    (function()
+        if not Humanoid or not RootPart or not Character then return end
+        
+        pcall(function()
+            Humanoid.WalkSpeed = 0
+            Humanoid.JumpPower = 0
+            Humanoid.PlatformStand = true
+            pcall(function()
+                Humanoid.AutoRotate = false
+            end)
+            RootPart.Velocity = Vector3.new(0, 0, 0)
+            RootPart.RotVelocity = Vector3.new(0, 0, 0)
+        end)
+        
+        for _, descendant in pairs(Character:GetDescendants()) do
+            local className = descendant.ClassName
+            if className == "BodyVelocity" or className == "BodyPosition" or className == "BodyGyro" or 
+               className == "VectorForce" or className == "AlignPosition" or className == "AlignOrientation" or 
+               className == "LinearVelocity" or className == "AngularVelocity" then
+                pcall(function()
+                    descendant:Destroy()
+                end)
+            end
+        end
+        
+        heartbeatConnection = RunService.Heartbeat:Connect(function()
+            if RootPart then
+                pcall(function()
+                    RootPart.Velocity = Vector3.new(0, 0, 0)
+                    RootPart.RotVelocity = Vector3.new(0, 0, 0)
+                end)
+            end
+            if Humanoid and Humanoid.WalkSpeed then
+                pcall(function()
+                    Humanoid.WalkSpeed = 0
+                end)
+            end
+        end)
+    end)()
+    
+    pcall(sendRemoteEvents)
+    pcall(function()
+        Humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+    end)
+    
+    if RootPart then
+        RootPart.CFrame = RootPart.CFrame * CFrame.Angles(math.rad(85), 0, 0)
+    end
+    
+    local dashDuration = 0.4
+    local startTime = tick()
+    local dashConnection = nil
+    
+    dashConnection = RunService.Heartbeat:Connect(function()
+        if dashDuration <= tick() - startTime then
+            if dashConnection and dashConnection.Disconnect then
+                pcall(function()
+                    dashConnection:Disconnect()
+                end)
+            end
+            return
+        end
+        
+        local success, cframe = pcall(function()
+            return CFrame.new((targetRoot.Position - targetRoot.CFrame.LookVector * 0.3)) * CFrame.Angles(math.rad(85), 0, 0)
+        end)
+        
+        if success and cframe and RootPart then
+            pcall(function()
+                RootPart.CFrame = cframe
+            end)
+        end
+    end)
+    
+    repeat task.wait() until dashDuration <= tick() - startTime
+    
+    pcall(function()
+        Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+    end)
+    pcall(restoreStats)
+end
+
+local mainGui = Instance.new("ScreenGui")
+mainGui.Name = "Merebennie_StickDashGui"
+mainGui.ResetOnSpawn = false
+mainGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+mainGui.IgnoreGuiInset = true
+mainGui.DisplayOrder = 9999
+mainGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Name = "StickDashToggle"
+toggleButton.Size = UDim2.new(0, 50, 0, 50)
+toggleButton.Position = UDim2.new(0.4, 0, 0.8, 0)
+toggleButton.Text = "On"
+toggleButton.Font = Enum.Font.GothamBold
+toggleButton.TextScaled = true
+toggleButton.BackgroundColor3 = Color3.fromRGB(150, 120, 255)
+toggleButton.TextColor3 = Color3.new(1, 1, 1)
+toggleButton.AutoButtonColor = false
+toggleButton.ZIndex = 9999
+toggleButton.Parent = mainGui
+
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 10)
+buttonCorner.Parent = toggleButton
+
+local clickSound = Instance.new("Sound")
+clickSound.Name = "ButtonClickSound"
+clickSound.SoundId = "rbxassetid://6042053626"
+clickSound.Volume = 1
+clickSound.Looped = false
+clickSound.Parent = toggleButton
+
+toggleButton.MouseButton1Click:Connect(function()
+    pcall(function()
+        clickSound:Play()
+    end)
+    toggleButton:TweenSize(UDim2.new(0, 46, 0, 46), "Out", "Quad", 0.05, true)
+    task.wait(0.05)
+    toggleButton:TweenSize(UDim2.new(0, 50, 0, 50), "Out", "Quad", 0.05, true)
+end)
+
+local isDragging = false
+local dragInput = nil
+local dragStart = nil
+local startPos = nil
+
+toggleButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDragging = true
+        dragStart = input.Position
+        startPos = toggleButton.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                isDragging = false
+            end
+        end)
+    end
+end)
+
+toggleButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and isDragging and startPos then
+        local delta = input.Position - dragStart
+        toggleButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+toggleButton.MouseButton1Click:Connect(function()
+    isEnabled = not isEnabled
+    if isEnabled then
+        toggleButton.Text = "On"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(150, 120, 255)
+    else
+        toggleButton.Text = "Off"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(120, 90, 200)
+    end
+end)
+
+local cooldownFrame = Instance.new("Frame")
+cooldownFrame.Name = "MerckCooldown"
+cooldownFrame.Size = UDim2.new(0, 100, 0, 20)
+cooldownFrame.Position = UDim2.new(0, 8, 1, -40)
+cooldownFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+cooldownFrame.BackgroundTransparency = 0.7
+cooldownFrame.Visible = false
+cooldownFrame.Parent = mainGui
+cooldownFrame.ZIndex = 9998
+
+Instance.new("UICorner", cooldownFrame).CornerRadius = UDim.new(0, 8)
+
+local cooldownText = Instance.new("TextLabel")
+cooldownText.Name = "CooldownText"
+cooldownText.Size = UDim2.new(1, -8, 1, 0)
+cooldownText.Position = UDim2.new(0, 8, 0, 0)
+cooldownText.BackgroundTransparency = 1
+cooldownText.Text = "Cooldown"
+cooldownText.TextColor3 = Color3.new(1, 1, 1)
+cooldownText.Font = Enum.Font.GothamBold
+cooldownText.TextScaled = true
+cooldownText.TextXAlignment = Enum.TextXAlignment.Center
+cooldownText.Parent = cooldownFrame
+cooldownText.ZIndex = 9999
+
+local cooldownTween = TweenService:Create(cooldownFrame, TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+    BackgroundTransparency = 0.6
+})
+
+local tweenPlaying = false
+
+local function handleCooldown(duration)
+    if isCoolingDown then return end
+    isCoolingDown = true
+    cooldownFrame.Visible = true
+    
+    if not tweenPlaying then
+        tweenPlaying = true
+        pcall(function()
+            cooldownTween:Play()
+        end)
+    end
+    
+    local start = tick()
+    local remaining = duration
+    
+    while remaining > 0 do
+        remaining = duration - (tick() - start)
+        if remaining < 0 then remaining = 0 end
+        cooldownText.Text = string.format("Cooldown : %.1fs", remaining)
+        task.wait(0.1)
+    end
+    
+    isCoolingDown = false
+    cooldownFrame.Visible = false
+    pcall(function()
+        cooldownTween:Cancel()
+    end)
+    tweenPlaying = false
+end
+
+local function showNotification()
+    pcall(function()
+        local oldNotification = mainGui:FindFirstChild("MerebennieNotification")
+        if oldNotification then
+            oldNotification:Destroy()
+        end
+    end)
+    
+    local notification = Instance.new("Frame")
+    notification.Name = "MerebennieNotification"
+    notification.Size = UDim2.new(0, 280, 0, 60)
+    local targetPos = UDim2.new(0.5, -140, 0.5, -30)
+    local startPos = UDim2.new(0.5, -140, 0, -120)
+    notification.Position = startPos
+    notification.AnchorPoint = Vector2.new(0.5, 0.5)
+    notification.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+    notification.BackgroundTransparency = 1
+    notification.ZIndex = 10005
+    notification.Parent = mainGui
+    
+    Instance.new("UICorner", notification).CornerRadius = UDim.new(0, 10)
+    
+    local stroke = Instance.new("UIStroke", notification)
+    stroke.Thickness = 1
+    stroke.Color = Color3.fromRGB(10, 10, 10)
+    stroke.Transparency = 0.7
+    
+    notification.Size = UDim2.new(0, 260, 0, 52)
+    
+    local titleLabel = Instance.new("TextLabel", notification)
+    titleLabel.Name = "Title"
+    titleLabel.Size = UDim2.new(1, -20, 0, 20)
+    titleLabel.Position = UDim2.new(0, 10, 0, 6)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.Text = "Made by Merebennie"
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.TextScaled = true
+    titleLabel.TextTransparency = 1
+    titleLabel.ZIndex = 10006
+    
+    local bodyLabel = Instance.new("TextLabel", notification)
+    bodyLabel.Name = "Body"
+    bodyLabel.Size = UDim2.new(1, -20, 0, 24)
+    bodyLabel.Position = UDim2.new(0, 10, 0, 30)
+    bodyLabel.BackgroundTransparency = 1
+    bodyLabel.Font = Enum.Font.Gotham
+    bodyLabel.Text = "Discord: " .. discordLink
+    bodyLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    bodyLabel.TextScaled = true
+    bodyLabel.TextTransparency = 1
+    bodyLabel.ZIndex = 10006
+    bodyLabel.Active = true
+    
+    pcall(function()
+        if clickSound then clickSound:Play() end
+    end)
+    
+    local showTween = TweenService:Create(notification, TweenInfo.new(0.48, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Position = targetPos,
+        BackgroundTransparency = 0,
+        Size = UDim2.new(0, 280, 0, 60)
+    })
+    
+    local hideTween = TweenService:Create(notification, TweenInfo.new(0.38, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+        Position = startPos,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(0, 240, 0, 44)
+    })
+    
+    local titleTween = TweenService:Create(titleLabel, TweenInfo.new(0.36, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        TextTransparency = 0
+    })
+    
+    local bodyTween = TweenService:Create(bodyLabel, TweenInfo.new(0.36, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        TextTransparency = 0
+    })
+    
+    showTween:Play()
+    task.delay(0.06, function() titleTween:Play() end)
+    task.delay(0.12, function() bodyTween:Play() end)
+    
+    local originalText = bodyLabel.Text
+    local isLinkClicked = false
+    
+    bodyLabel.InputBegan:Connect(function(input)
+        if isLinkClicked then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isLinkClicked = true
+            local copied = false
+            pcall(function()
+                if setclipboard then
+                    setclipboard(discordLink)
+                    copied = true
+                end
+            end)
+            bodyLabel.Text = copied and "Copied!" or "Copy this link: " .. discordLink
+            pcall(function()
+                if clickSound then clickSound:Play() end
+            end)
+            task.delay(1.5, function()
+                if bodyLabel and bodyLabel.Parent then
+                    bodyLabel.Text = originalText
+                end
+                isLinkClicked = false
+            end)
+        end
+    end)
+    
+    task.delay(4, function()
+        if hideTween then
+            hideTween:Play()
+            hideTween.Completed:Wait()
+        end
+        pcall(function()
+            notification:Destroy()
+        end)
+    end)
+end
+
+pcall(showNotification)
+
+local connections = {}
+
+local function cleanupConnections()
+    for _, connection in pairs(connections) do
+        if connection and connection.Disconnect then
+            pcall(function()
+                connection:Disconnect()
+            end)
+        end
+    end
+    connections = {}
+end
+
+local function tryDash()
+    if not isEnabled or isCoolingDown then return end
+    if dashDelay <= tick() - lastDashTime then
+        lastDashTime = tick()
+        task.spawn(function()
+            pcall(executeDash)
+        end)
+        task.spawn(function()
+            handleCooldown(cooldownDuration)
+        end)
+    end
+end
+
+local function onAnimationPlayed(animationTrack)
+    local animation = animationTrack and animationTrack.Animation
+    if animation then
+        local animationId = tostring(animation.AnimationId or "")
+        if string.find(animationId, "10503381238", 1, true) or string.find(animationId, "13379003796", 1, true) then
+            task.delay(0.3, tryDash)
+        end
+    end
+end
+
+local function setupCharacter(newCharacter)
+    cleanupConnections()
+    Character = newCharacter
+    Humanoid = newCharacter:WaitForChild("Humanoid")
+    RootPart = newCharacter:WaitForChild("HumanoidRootPart")
+    
+    local success, connection = pcall(function()
+        return Humanoid.AnimationPlayed:Connect(onAnimationPlayed)
+    end)
+    if success and connection then
+        table.insert(connections, connection)
+    end
+    
+    local animator = Humanoid:FindFirstChildOfClass("Animator")
+    if animator then
+        local success2, connection2 = pcall(function()
+            return animator.AnimationPlayed:Connect(onAnimationPlayed)
+        end)
+        if success2 and connection2 then
+            table.insert(connections, connection2)
+        end
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(setupCharacter)
+if LocalPlayer.Character then
+    setupCharacter(LocalPlayer.Character)
+end

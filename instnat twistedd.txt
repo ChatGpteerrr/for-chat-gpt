@@ -1,0 +1,138 @@
+local Players = game:GetService("Players")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local triggerAnimationId = 13294471966
+local aimlockPrePressDelay = 0.2
+local aimlockKeyHoldDuration = 0.5
+local aimlockEnabled = true
+
+local function getClosestCharacter()
+    local closestCharacter = nil
+    local closestDistance = math.huge
+
+    local localCharacter = LocalPlayer.Character
+    local localRootPart
+
+    if localCharacter then
+        localRootPart = localCharacter:FindFirstChild("HumanoidRootPart")
+    end
+
+    if not localRootPart then
+        return nil
+    end
+
+    for _, descendant in ipairs(workspace:GetDescendants()) do
+        if descendant:IsA("Humanoid") and descendant.Parent and descendant.Parent:FindFirstChild("HumanoidRootPart") then
+            local characterModel = descendant.Parent
+
+            if characterModel ~= localCharacter then
+                local distance = (characterModel.HumanoidRootPart.Position - localRootPart.Position).Magnitude
+
+                if distance < closestDistance then
+                    closestCharacter = characterModel
+                    closestDistance = distance
+                end
+            end
+        end
+    end
+
+    return closestCharacter
+end
+
+local function performAimlockAction()
+    task.wait(aimlockPrePressDelay)
+
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Q, false, game)
+    task.wait(aimlockKeyHoldDuration)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Q, false, game)
+
+    local targetCharacter = getClosestCharacter()
+    if not targetCharacter then
+        return
+    end
+
+    local targetRootPart = targetCharacter:FindFirstChild("HumanoidRootPart")
+
+    local localCharacter = LocalPlayer.Character
+    local localRootPart
+
+    if localCharacter then
+        localRootPart = localCharacter:FindFirstChild("HumanoidRootPart")
+    end
+
+    if targetRootPart and localRootPart then
+        local direction = Vector3.new(
+            targetRootPart.Position.X - localRootPart.Position.X,
+            0,
+            targetRootPart.Position.Z - localRootPart.Position.Z
+        ).Unit
+
+        localRootPart.CFrame = CFrame.new(localRootPart.Position, localRootPart.Position + direction)
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + direction)
+        localRootPart.CFrame = localRootPart.CFrame * CFrame.Angles(math.rad(-90), 0, 0)
+    end
+end
+
+local function createAimlockToggleUI()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "AimlockToggleUI"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+    local watermarkLabel = Instance.new("TextLabel")
+    watermarkLabel.Parent = screenGui
+    watermarkLabel.Size = UDim2.new(0, 200, 0, 20)
+    watermarkLabel.Position = UDim2.new(0.5, 0, 0, 8)
+    watermarkLabel.AnchorPoint = Vector2.new(0.5, 0)
+    watermarkLabel.BackgroundTransparency = 1
+    watermarkLabel.Font = Enum.Font.Arcade
+    watermarkLabel.Text = "Made by Merebennie on YouTube"
+    watermarkLabel.TextSize = 14
+    watermarkLabel.TextColor3 = Color3.new(1, 1, 1)
+
+    local toggleButton = Instance.new("TextButton")
+    toggleButton.Parent = screenGui
+    toggleButton.Size = UDim2.new(0, 65, 0, 65)
+    toggleButton.Position = UDim2.new(0.5, -32.5, 0.8, -32.5)
+    toggleButton.AnchorPoint = Vector2.new(0.5, 0.5)
+    toggleButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    toggleButton.BorderSizePixel = 0
+    toggleButton.Font = Enum.Font.SourceSansBold
+    toggleButton.Text = "On"
+    toggleButton.TextScaled = true
+    toggleButton.TextColor3 = Color3.new(1, 1, 1)
+    toggleButton.TextStrokeColor3 = Color3.new(0, 0, 0)
+    toggleButton.TextStrokeTransparency = 0
+    toggleButton.Active = true
+    toggleButton.Draggable = true
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 12)
+    corner.Parent = toggleButton
+
+    toggleButton.MouseButton1Click:Connect(function()
+        aimlockEnabled = not aimlockEnabled
+        toggleButton.Text = aimlockEnabled and "On" or "Off"
+    end)
+end
+
+local function setupHumanoidAnimationListener(humanoid)
+    humanoid.AnimationPlayed:Connect(function(animationTrack)
+        if aimlockEnabled and animationTrack.Animation and animationTrack.Animation.AnimationId == "rbxassetid://" .. triggerAnimationId then
+            performAimlockAction()
+        end
+    end)
+end
+
+createAimlockToggleUI()
+
+LocalPlayer.CharacterAdded:Connect(function(character)
+    local humanoid = character:WaitForChild("Humanoid")
+    setupHumanoidAnimationListener(humanoid)
+end)
+
+if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+    setupHumanoidAnimationListener(LocalPlayer.Character.Humanoid)
+end

@@ -1,0 +1,738 @@
+local function loadRemoteScript(remoteUrl)
+    local success, result = pcall(function()
+        return loadstring(game:HttpGet(remoteUrl, true))()
+    end)
+    return success, result
+end
+
+local mainUiSourceUrl = "https://raw.githubusercontent.com/Nebula-Softworks/Luna-Interface-Suite/refs/heads/main/source.lua"
+local uiLoadSuccess, uiLibraryResult = pcall(function()
+    return loadstring(game:HttpGet(mainUiSourceUrl, true))()
+end)
+
+local uiLibrary = uiLoadSuccess and uiLibraryResult and uiLibraryResult
+    or loadstring(game:HttpGet("https://raw.githubusercontent.com/Nebula-Softworks/Luna-Interface-Suite/refs/heads/master/source.lua", true))()
+
+local playersService = game:GetService("Players")
+local localPlayer = playersService.LocalPlayer
+
+local existingScreenGuis = {}
+
+pcall(function()
+    local playerGui = localPlayer:FindFirstChildOfClass("PlayerGui")
+    if playerGui then
+        for _, child in ipairs(playerGui:GetChildren()) do
+            if child:IsA("ScreenGui") then
+                existingScreenGuis[child] = true
+            end
+        end
+    end
+end)
+
+local mainWindow = uiLibrary:CreateWindow({
+    Name = "Merebennie Hub",
+    Subtitle = "Hunter's Tools",
+    LogoID = nil,
+    LoadingEnabled = false,
+    LoadingTitle = "Merebennie Hub",
+    LoadingSubtitle = nil,
+    ConfigSettings = {
+        RootFolder = nil,
+        ConfigFolder = "MerebennieHub"
+    },
+    KeySystem = false
+})
+
+pcall(function()
+    local playerGui = localPlayer:FindFirstChildOfClass("PlayerGui")
+    local coreGui = game:GetService("CoreGui")
+
+    if playerGui and coreGui then
+        for _, child in ipairs(playerGui:GetChildren()) do
+            if child:IsA("ScreenGui") and not existingScreenGuis[child] then
+                pcall(function()
+                    child.Parent = coreGui
+                end)
+            end
+        end
+    end
+end)
+
+local function migrateNewScreenGuisToCoreGui()
+    local success, playerGui = pcall(function()
+        return localPlayer:WaitForChild("PlayerGui", 5)
+    end)
+
+    if success and playerGui then
+        playerGui.ChildAdded:Connect(function(child)
+            if child and child:IsA("ScreenGui") then
+                task.wait(0.12)
+                pcall(function()
+                    child.Parent = game:GetService("CoreGui")
+                end)
+            end
+        end)
+    end
+end
+
+task.spawn(migrateNewScreenGuisToCoreGui)
+
+mainWindow:CreateHomeTab({
+    SupportedExecutors = {
+        "Synapse X",
+        "Krnl",
+        "ProtoSmasher",
+        "Fluxus",
+        "Script-Ware",
+        "EasyExploits",
+        "Electron",
+        "JJSploit",
+        "Calamari",
+        "SirHurt",
+        "Sentinel",
+        "WEAREDEVS",
+        "Comet",
+        "Cellery",
+        "Wave",
+        "CODex",
+        "Delta"
+    },
+    DiscordInvite = "5x4xbPvuSc",
+    Icon = 1
+})
+
+local mainTab = mainWindow:CreateTab({
+    Name = "Main",
+    Icon = "dashboard",
+    ImageSource = "Material",
+    ShowTitle = true
+})
+
+mainTab:CreateLabel({
+    Text = "Hello, " .. tostring(localPlayer and (localPlayer.Name or "Player") or "Player"),
+    Style = 1
+})
+
+mainTab:CreateLabel({
+    Text = "Executor: Detected above if supported",
+    Style = 2
+})
+
+mainTab:CreateDivider()
+
+local function getNetworkPingMs()
+    local statsSuccess, statsService = pcall(function()
+        return game:GetService("Stats")
+    end)
+
+    if not (statsSuccess and statsService) then
+        return 0
+    end
+
+    local networkStats = statsService.Network
+    if not networkStats then
+        return 0
+    end
+
+    local pingItem = networkStats.ServerStatsItem
+    if pingItem then
+        pingItem = networkStats.ServerStatsItem["Data Ping"]
+    end
+
+    if pingItem and pcall(function()
+        return pingItem:GetValue()
+    end) then
+        local pingValue = pingItem:GetValue()
+        if type(pingValue) == "number" then
+            return math.floor(pingValue)
+        end
+    end
+
+    if localPlayer and localPlayer.GetNetworkPing and pcall(function()
+        return localPlayer:GetNetworkPing()
+    end) then
+        local pingSeconds = localPlayer:GetNetworkPing()
+        if type(pingSeconds) == "number" then
+            return math.floor(pingSeconds * 1000)
+        end
+    end
+
+    return 0
+end
+
+mainTab:CreateParagraph({
+    Title = "Server Info",
+    Text = ("Players: %d/%d\nLatency: %dms\nRegion: %s"):format(
+        #playersService:GetPlayers(),
+        playersService.MaxPlayers or 0,
+        getNetworkPingMs(),
+        "Unknown"
+    )
+})
+
+local techTab = mainWindow:CreateTab({
+    Name = "Tech",
+    Icon = "science",
+    ImageSource = "Material",
+    ShowTitle = true
+})
+
+techTab:CreateSection("Combat Tools")
+
+techTab:CreateLabel({
+    Text = "⚠⚠ Press W instantly after uppercut to work",
+    Style = 3
+})
+
+techTab:CreateButton({
+    Name = "Hunter's Grasp",
+    Description = "Executes Hunter's Grasp",
+    Callback = function()
+        local success = select(1, loadRemoteScript("https://raw.githubusercontent.com/Mereeeecuf/Scriptbro/main/Hunter%27s%20grasp"))
+
+        if success then
+            uiLibrary:Notification({
+                Title = "Merebennie Hub",
+                Icon = "check_circle",
+                ImageSource = "Material",
+                Content = "Hunter's Grasp executed!"
+            })
+        else
+            uiLibrary:Notification({
+                Title = "Merebennie Hub",
+                Icon = "error",
+                ImageSource = "Material",
+                Content = "Failed to execute Hunter's Grasp."
+            })
+        end
+    end
+})
+
+techTab:CreateButton({
+    Name = "Auto Kyoto",
+    Description = "Run Auto Kyoto V2",
+    Callback = function()
+        local success = select(1, loadRemoteScript("https://raw.githubusercontent.com/MerebennieOfficial/ExoticJn/refs/heads/main/AutoKyotoV2"))
+
+        if success then
+            uiLibrary:Notification({
+                Title = "Merebennie Hub",
+                Icon = "check_circle",
+                ImageSource = "Material",
+                Content = "Auto Kyoto executed!"
+            })
+        else
+            uiLibrary:Notification({
+                Title = "Merebennie Hub",
+                Icon = "error",
+                ImageSource = "Material",
+                Content = "Failed to run Auto Kyoto."
+            })
+        end
+    end
+})
+
+techTab:CreateButton({
+    Name = "M1 Reset",
+    Description = "Run M1 Reset",
+    Callback = function()
+        local success = select(1, loadRemoteScript("https://raw.githubusercontent.com/MerebennieOfficial/ExoticJn/refs/heads/main/M1%20Reset"))
+
+        if success then
+            uiLibrary:Notification({
+                Title = "Merebennie Hub",
+                Icon = "check_circle",
+                ImageSource = "Material",
+                Content = "M1 Reset executed!"
+            })
+        else
+            uiLibrary:Notification({
+                Title = "Merebennie Hub",
+                Icon = "error",
+                ImageSource = "Material",
+                Content = "Failed to run M1 Reset."
+            })
+        end
+    end
+})
+
+techTab:CreateButton({
+    Name = "Spyn Loop Tech",
+    Description = "Run Spyn Loop Tech (Spynx)",
+    Callback = function()
+        local success = select(1, loadRemoteScript("https://raw.githubusercontent.com/Mereeeecuf/Scriptbro/refs/heads/main/Spynx"))
+
+        if success then
+            uiLibrary:Notification({
+                Title = "Merebennie Hub",
+                Icon = "check_circle",
+                ImageSource = "Material",
+                Content = "Spyn Loop Tech executed!"
+            })
+        else
+            uiLibrary:Notification({
+                Title = "Merebennie Hub",
+                Icon = "error",
+                ImageSource = "Material",
+                Content = "Failed to run Spyn Loop Tech."
+            })
+        end
+    end
+})
+
+techTab:CreateSection("Utilities")
+
+techTab:CreateButton({
+    Name = "Merck Tech",
+    Description = "Executes Merck Tech (MadebyMerebennieYOUTUBE)",
+    Callback = function()
+        local success = select(1, loadRemoteScript("https://raw.githubusercontent.com/Mereeeecuf/Scriptbro/refs/heads/main/MadebyMerebennieYOUTUBE"))
+
+        if success then
+            uiLibrary:Notification({
+                Title = "Merebennie Hub",
+                Icon = "check_circle",
+                ImageSource = "Material",
+                Content = "Merck Tech executed!"
+            })
+        else
+            uiLibrary:Notification({
+                Title = "Merebennie Hub",
+                Icon = "error",
+                ImageSource = "Material",
+                Content = "Failed to execute Merck Tech."
+            })
+        end
+    end
+})
+
+local autoTab = mainWindow:CreateTab({
+    Name = "Auto",
+    Icon = "autorenew",
+    ImageSource = "Material",
+    ShowTitle = true
+})
+
+autoTab:CreateSection("Auto Tools")
+
+autoTab:CreateButton({
+    Name = "Auto Uppercut V2",
+    Description = "Run Auto Uppercut V2",
+    Callback = function()
+        local success = select(1, loadRemoteScript("https://raw.githubusercontent.com/Mereeeecuf/Scriptbro/refs/heads/main/Auto%20uppercut%20V2"))
+
+        if success then
+            uiLibrary:Notification({
+                Title = "Merebennie Hub",
+                Icon = "check_circle",
+                ImageSource = "Material",
+                Content = "Auto Uppercut V2 executed!"
+            })
+        else
+            uiLibrary:Notification({
+                Title = "Merebennie Hub",
+                Icon = "error",
+                ImageSource = "Material",
+                Content = "Failed to run Auto Uppercut V2."
+            })
+        end
+    end
+})
+
+autoTab:CreateSection("Effects Colorizer")
+
+local trailColor = Color3.fromRGB(255, 255, 255)
+local smokeColor = Color3.fromRGB(180, 180, 180)
+local colorApplyScope = "All"
+
+autoTab:CreateColorPicker({
+    Name = "Trail Color",
+    Color = trailColor,
+    Flag = "TrailColorFlag",
+    Callback = function(chosenColor)
+        trailColor = chosenColor
+    end
+}, "TrailColor")
+
+autoTab:CreateColorPicker({
+    Name = "Smoke Color",
+    Color = smokeColor,
+    Flag = "SmokeColorFlag",
+    Callback = function(chosenColor)
+        smokeColor = chosenColor
+    end
+}, "SmokeColor")
+
+autoTab:CreateDropdown({
+    Name = "Apply To",
+    Description = "Choose which characters/objects to color",
+    Options = {
+        "All",
+        "LocalPlayer",
+        "Others"
+    },
+    CurrentOption = { "All" },
+    MultipleOptions = false,
+    Callback = function(option)
+        if type(option) ~= "table" then
+            colorApplyScope = option or "All"
+        else
+            colorApplyScope = option[1] or "All"
+        end
+    end
+}, "ColorApplyScope")
+
+local effectsColorizerState = {
+    active = false,
+    connections = {},
+    coroutines = {}
+}
+
+local function createColorSequenceFromColor(color)
+    return ColorSequence.new({
+        ColorSequenceKeypoint.new(0, color),
+        ColorSequenceKeypoint.new(1, color)
+    })
+end
+
+local function safeSetProperty(instance, propertyName, value)
+    pcall(function()
+        instance[propertyName] = value
+    end)
+end
+
+local effectClassFilter = {
+    Trail = true,
+    ParticleEmitter = true,
+    Smoke = true,
+    Beam = true,
+    Fire = true,
+    Sparkles = true
+}
+
+local function applyColorToEffectInstance(effectInstance)
+    if effectInstance and effectInstance.Parent then
+        local className = effectInstance.ClassName
+
+        if className == "Trail" then
+            safeSetProperty(effectInstance, "Color", createColorSequenceFromColor(trailColor))
+        elseif className == "Beam" then
+            safeSetProperty(effectInstance, "Color", createColorSequenceFromColor(trailColor))
+        elseif className == "ParticleEmitter" then
+            local lowerName = (effectInstance.Name or ""):lower()
+            if lowerName:find("smoke") or lowerName:find("dust") or lowerName:find("steam") or lowerName:find("fog") then
+                safeSetProperty(effectInstance, "Color", createColorSequenceFromColor(smokeColor))
+            elseif colorApplyScope == "All" then
+                safeSetProperty(effectInstance, "Color", createColorSequenceFromColor(smokeColor))
+            end
+        elseif className == "Smoke" then
+            safeSetProperty(effectInstance, "Color", smokeColor)
+        elseif className == "Fire" then
+            safeSetProperty(effectInstance, "Color", smokeColor)
+            safeSetProperty(effectInstance, "SecondaryColor", smokeColor)
+        elseif className == "Sparkles" then
+            if pcall(function()
+                return effectInstance.SparkleColor
+            end) then
+                safeSetProperty(effectInstance, "SparkleColor", smokeColor)
+            else
+                safeSetProperty(effectInstance, "Color", smokeColor)
+            end
+        end
+    end
+end
+
+local function recolorEffectsInInstance(rootInstance)
+    if rootInstance then
+        for _, descendant in ipairs(rootInstance:GetDescendants()) do
+            if effectClassFilter[descendant.ClassName] then
+                applyColorToEffectInstance(descendant)
+            end
+        end
+    end
+end
+
+local function connectDescendantAddedRecolor(rootInstance)
+    if rootInstance then
+        return rootInstance.DescendantAdded:Connect(function(descendant)
+            if effectClassFilter[descendant.ClassName] then
+                task.defer(function()
+                    applyColorToEffectInstance(descendant)
+                end)
+            end
+        end)
+    end
+    return nil
+end
+
+local function setupCharacterRecoloring(character)
+    if character then
+        recolorEffectsInInstance(character)
+        table.insert(effectsColorizerState.connections, connectDescendantAddedRecolor(character))
+
+        local backpack = localPlayer:FindFirstChildOfClass("Backpack") or localPlayer:WaitForChild("Backpack", 5)
+        if backpack then
+            table.insert(effectsColorizerState.connections, connectDescendantAddedRecolor(backpack))
+        end
+
+        local recolorCoroutine = coroutine.create(function()
+            while effectsColorizerState.active and character and character.Parent do
+                recolorEffectsInInstance(character)
+                task.wait(2)
+            end
+        end)
+
+        table.insert(effectsColorizerState.coroutines, recolorCoroutine)
+        coroutine.resume(recolorCoroutine)
+    end
+end
+
+local function enablePersistentColorizer()
+    if not effectsColorizerState.active then
+        effectsColorizerState.active = true
+
+        if colorApplyScope == "All" then
+            recolorEffectsInInstance(workspace)
+            table.insert(effectsColorizerState.connections, connectDescendantAddedRecolor(workspace))
+
+            local worldRecolorCoroutine = coroutine.create(function()
+                while effectsColorizerState.active do
+                    recolorEffectsInInstance(workspace)
+                    task.wait(4)
+                end
+            end)
+
+            table.insert(effectsColorizerState.coroutines, worldRecolorCoroutine)
+            coroutine.resume(worldRecolorCoroutine)
+        end
+
+        if colorApplyScope == "All" or colorApplyScope == "LocalPlayer" then
+            if localPlayer.Character then
+                setupCharacterRecoloring(localPlayer.Character)
+            end
+
+            table.insert(
+                effectsColorizerState.connections,
+                localPlayer.CharacterAdded:Connect(setupCharacterRecoloring)
+            )
+        end
+
+        if colorApplyScope == "All" or colorApplyScope == "Others" then
+            for _, player in ipairs(playersService:GetPlayers()) do
+                if player ~= localPlayer and player.Character then
+                    recolorEffectsInInstance(player.Character)
+                    table.insert(effectsColorizerState.connections, connectDescendantAddedRecolor(player.Character))
+                end
+
+                if player.CharacterAdded then
+                    table.insert(
+                        effectsColorizerState.connections,
+                        player.CharacterAdded:Connect(function(character)
+                            if effectsColorizerState.active then
+                                recolorEffectsInInstance(character)
+                                table.insert(
+                                    effectsColorizerState.connections,
+                                    connectDescendantAddedRecolor(character)
+                                )
+                            end
+                        end)
+                    )
+                end
+            end
+
+            table.insert(
+                effectsColorizerState.connections,
+                playersService.PlayerAdded:Connect(function(player)
+                    if effectsColorizerState.active and player.Character then
+                        recolorEffectsInInstance(player.Character)
+                        table.insert(
+                            effectsColorizerState.connections,
+                            connectDescendantAddedRecolor(player.Character)
+                        )
+                    end
+                end)
+            )
+        end
+
+        uiLibrary:Notification({
+            Title = "Merebennie Hub",
+            Icon = "palette",
+            ImageSource = "Material",
+            Content = "Effects Colorizer persistent mode enabled."
+        })
+    end
+end
+
+local function disablePersistentColorizer()
+    if effectsColorizerState.active then
+        effectsColorizerState.active = false
+
+        for _, connection in ipairs(effectsColorizerState.connections) do
+            pcall(function()
+                if connection and connection.Disconnect then
+                    connection:Disconnect()
+                end
+            end)
+        end
+
+        effectsColorizerState.connections = {}
+        effectsColorizerState.coroutines = {}
+
+        uiLibrary:Notification({
+            Title = "Merebennie Hub",
+            Icon = "highlight_off",
+            ImageSource = "Material",
+            Content = "Effects Colorizer persistent mode disabled."
+        })
+    end
+end
+
+local function applyColorizerOnce()
+    local targets = {}
+
+    if colorApplyScope ~= "LocalPlayer" then
+        if colorApplyScope ~= "Others" then
+            table.insert(targets, workspace)
+
+            for _, player in ipairs(playersService:GetPlayers()) do
+                if player.Character then
+                    table.insert(targets, player.Character)
+                end
+            end
+        else
+            for _, player in ipairs(playersService:GetPlayers()) do
+                if player ~= localPlayer and player.Character then
+                    table.insert(targets, player.Character)
+                end
+            end
+        end
+    elseif localPlayer and localPlayer.Character then
+        table.insert(targets, localPlayer.Character)
+    end
+
+    for _, target in ipairs(targets) do
+        recolorEffectsInInstance(target)
+    end
+
+    uiLibrary:Notification({
+        Title = "Merebennie Hub",
+        Icon = "palette",
+        ImageSource = "Material",
+        Content = ("Applied Trail(%d,%d,%d) Smoke(%d,%d,%d) to %s"):format(
+            math.floor(trailColor.R * 255),
+            math.floor(trailColor.G * 255),
+            math.floor(trailColor.B * 255),
+            math.floor(smokeColor.R * 255),
+            math.floor(smokeColor.G * 255),
+            math.floor(smokeColor.B * 255),
+            colorApplyScope
+        )
+    })
+end
+
+autoTab:CreateButton({
+    Name = "Apply Colors",
+    Description = "Apply selected Trail & Smoke colors according to scope",
+    Callback = function()
+        applyColorizerOnce()
+    end
+})
+
+autoTab:CreateToggle({
+    Name = "Persistent Mode",
+    Description = "Keep recoloring new effects and periodically reapply",
+    CurrentValue = false,
+    Callback = function(enabled)
+        if enabled then
+            enablePersistentColorizer()
+        else
+            disablePersistentColorizer()
+        end
+    end
+}, "EffectsPersistentToggle")
+
+autoTab:CreateButton({
+    Name = "Stop Persistent (force)",
+    Description = "Force stop persistent colorizer (if something weird happened)",
+    Callback = function()
+        disablePersistentColorizer()
+    end
+})
+
+local miscTab = mainWindow:CreateTab({
+    Name = "Miscellaneous",
+    Icon = "extension",
+    ImageSource = "Material",
+    ShowTitle = true
+})
+
+miscTab:CreateSection("Performance")
+
+miscTab:CreateButton({
+    Name = "FPS Booster V1.1",
+    Description = "Boost FPS for smoother gameplay",
+    Callback = function()
+        local success = select(1, loadRemoteScript("https://raw.githubusercontent.com/Mereeeecuf/Scriptbro/refs/heads/main/Hey"))
+
+        if success then
+            uiLibrary:Notification({
+                Title = "Merebennie Hub",
+                Icon = "check_circle",
+                ImageSource = "Material",
+                Content = "FPS Booster V1.1 activated!"
+            })
+        else
+            uiLibrary:Notification({
+                Title = "Merebennie Hub",
+                Icon = "error",
+                ImageSource = "Material",
+                Content = "Failed to activate FPS Booster."
+            })
+        end
+    end
+})
+
+miscTab:CreateButton({
+    Name = "Shaders",
+    Description = "Run universal simple shader",
+    Callback = function()
+        local success = select(1, loadRemoteScript("https://rawscripts.net/raw/Universal-Script-Simple-Shader-37434"))
+
+        if success then
+            uiLibrary:Notification({
+                Title = "Merebennie Hub",
+                Icon = "check_circle",
+                ImageSource = "Material",
+                Content = "Shaders loaded!"
+            })
+        else
+            uiLibrary:Notification({
+                Title = "Merebennie Hub",
+                Icon = "error",
+                ImageSource = "Material",
+                Content = "Failed to load Shaders."
+            })
+        end
+    end
+})
+
+mainWindow:CreateTab({
+    Name = "Theme",
+    Icon = "palette",
+    ImageSource = "Material",
+    ShowTitle = true
+}):BuildThemeSection()
+
+mainWindow:CreateTab({
+    Name = "Config",
+    Icon = "settings",
+    ImageSource = "Material",
+    ShowTitle = true
+}):BuildConfigSection()
+
+uiLibrary:Notification({
+    Title = "Merebennie Hub",
+    Icon = "rocket_launch",
+    ImageSource = "Material",
+    Content = "Hub loaded. Discord: discord.gg/5x4xbPvuSc"
+})

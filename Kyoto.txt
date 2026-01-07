@@ -1,0 +1,287 @@
+local dashDistance = 22.5
+local triggerAnimationId = "rbxassetid://12273188754"
+local activationDelay = 1.5
+local activationCooldown = 0.6
+
+local players = game:GetService("Players")
+local virtualInputManager = game:GetService("VirtualInputManager")
+local tweenService = game:GetService("TweenService")
+
+local localPlayer = players.LocalPlayer
+local lastActivationTime = 0
+local animationPlayedConnection = nil
+local dashEnabled = true
+local isDraggingToggleButton = false
+
+local function getTimeSeconds()
+    return os.clock()
+end
+
+local function getCharacterRootPart()
+    local character = localPlayer.Character
+    if character then
+        return character:FindFirstChild("HumanoidRootPart")
+    end
+    return nil
+end
+
+local function performDashAndPressTwo()
+    if getTimeSeconds() - lastActivationTime < activationCooldown then
+        return
+    end
+
+    lastActivationTime = getTimeSeconds()
+    local rootPart = getCharacterRootPart()
+
+    if rootPart then
+        rootPart.CFrame = rootPart.CFrame + rootPart.CFrame.LookVector * dashDistance
+        pcall(function()
+            virtualInputManager:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
+            task.wait(0.05)
+            virtualInputManager:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
+        end)
+    end
+end
+
+local function bindHumanoidAnimationListener(humanoid)
+    if animationPlayedConnection then
+        animationPlayedConnection:Disconnect()
+        animationPlayedConnection = nil
+    end
+
+    if humanoid then
+        animationPlayedConnection = humanoid.AnimationPlayed:Connect(function(track)
+            local success, animationIdString = pcall(function()
+                return track and (track.Animation and tostring(track.Animation.AnimationId)) or ""
+            end)
+
+            if not success then
+                return
+            end
+
+            if dashEnabled and animationIdString == triggerAnimationId then
+                task.delay(activationDelay, function()
+                    if dashEnabled then
+                        performDashAndPressTwo()
+                    end
+                end)
+            end
+        end)
+    end
+end
+
+local function onCharacterAdded(character)
+    local humanoid = character:WaitForChild("Humanoid")
+    bindHumanoidAnimationListener(humanoid)
+end
+
+localPlayer.CharacterAdded:Connect(onCharacterAdded)
+if localPlayer.Character then
+    onCharacterAdded(localPlayer.Character)
+end
+
+local uiScreenGui = Instance.new("ScreenGui")
+uiScreenGui.Parent = game:GetService("CoreGui")
+uiScreenGui.ResetOnSpawn = false
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0, 80, 0, 40)
+toggleButton.Position = UDim2.new(0, 50, 0, 50)
+toggleButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.Text = "On"
+toggleButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+toggleButton.Font = Enum.Font.SourceSansBold
+toggleButton.TextSize = 22
+toggleButton.Parent = uiScreenGui
+
+local toggleButtonCorner = Instance.new("UICorner")
+toggleButtonCorner.CornerRadius = UDim.new(0, 10)
+toggleButtonCorner.Parent = toggleButton
+
+local clickSound = Instance.new("Sound")
+clickSound.SoundId = "rbxassetid://6042053626"
+clickSound.Volume = 1
+clickSound.Parent = toggleButton
+
+local dragStartPosition = nil
+local buttonStartPosition = nil
+
+toggleButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDraggingToggleButton = false
+        dragStartPosition = input.Position
+        buttonStartPosition = toggleButton.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                isDraggingToggleButton = false
+            end
+        end)
+    end
+end)
+
+toggleButton.InputChanged:Connect(function(input)
+    if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and dragStartPosition then
+        isDraggingToggleButton = true
+        local delta = input.Position - dragStartPosition
+        toggleButton.Position = UDim2.new(
+            buttonStartPosition.X.Scale,
+            buttonStartPosition.X.Offset + delta.X,
+            buttonStartPosition.Y.Scale,
+            buttonStartPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+
+toggleButton.MouseButton1Click:Connect(function()
+    if isDraggingToggleButton then
+        return
+    end
+
+    dashEnabled = not dashEnabled
+    toggleButton.Text = dashEnabled and "On" or "Off"
+    clickSound:Play()
+
+    local shrinkTween = tweenService:Create(toggleButton, TweenInfo.new(0.1), {
+        Size = UDim2.new(0, 72, 0, 36)
+    })
+
+    local growTween = tweenService:Create(toggleButton, TweenInfo.new(0.1), {
+        Size = UDim2.new(0, 80, 0, 40)
+    })
+
+    shrinkTween:Play()
+    shrinkTween.Completed:Connect(function()
+        growTween:Play()
+    end)
+end)
+
+local delayFrame = Instance.new("Frame")
+delayFrame.Size = UDim2.new(0, 150, 0, 60)
+delayFrame.Position = UDim2.new(0, 150, 0, 50)
+delayFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+delayFrame.BackgroundTransparency = 0.3
+delayFrame.Parent = uiScreenGui
+delayFrame.Active = true
+delayFrame.Draggable = true
+
+local delayFrameCorner = Instance.new("UICorner")
+delayFrameCorner.CornerRadius = UDim.new(0, 10)
+delayFrameCorner.Parent = delayFrame
+
+local delayLabel = Instance.new("TextLabel")
+delayLabel.Size = UDim2.new(1, -20, 0, 25)
+delayLabel.Position = UDim2.new(0, 10, 0, 5)
+delayLabel.BackgroundTransparency = 1
+delayLabel.Text = "Delay: " .. activationDelay
+delayLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+delayLabel.Font = Enum.Font.SourceSansBold
+delayLabel.TextScaled = true
+delayLabel.Parent = delayFrame
+
+local function playClickBounceTween(button)
+    local originalSize = button.Size
+    local reducedWidth = math.max(6, originalSize.X.Offset - 8)
+    local reducedHeight = math.max(6, originalSize.Y.Offset - 4)
+    local smallerSize = UDim2.new(originalSize.X.Scale, reducedWidth, originalSize.Y.Scale, reducedHeight)
+
+    clickSound:Play()
+
+    local shrinkTween = tweenService:Create(button, TweenInfo.new(0.08), {
+        Size = smallerSize
+    })
+
+    local growTween = tweenService:Create(button, TweenInfo.new(0.08), {
+        Size = originalSize
+    })
+
+    shrinkTween:Play()
+    shrinkTween.Completed:Connect(function()
+        growTween:Play()
+    end)
+end
+
+local decreaseDelayButton = Instance.new("TextButton")
+decreaseDelayButton.Size = UDim2.new(0, 28, 0, 28)
+decreaseDelayButton.Position = UDim2.new(0, 10, 0, 26)
+decreaseDelayButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+decreaseDelayButton.BackgroundTransparency = 0.3
+decreaseDelayButton.Text = "-"
+decreaseDelayButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+decreaseDelayButton.Font = Enum.Font.SourceSansBold
+decreaseDelayButton.TextSize = 22
+decreaseDelayButton.Parent = delayFrame
+
+local decreaseDelayCorner = Instance.new("UICorner")
+decreaseDelayCorner.CornerRadius = UDim.new(0, 14)
+decreaseDelayCorner.Parent = decreaseDelayButton
+
+local increaseDelayButton = Instance.new("TextButton")
+increaseDelayButton.Size = UDim2.new(0, 28, 0, 28)
+increaseDelayButton.Position = UDim2.new(0, 112, 0, 26)
+increaseDelayButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+increaseDelayButton.BackgroundTransparency = 0.3
+increaseDelayButton.Text = "+"
+increaseDelayButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+increaseDelayButton.Font = Enum.Font.SourceSansBold
+increaseDelayButton.TextSize = 22
+increaseDelayButton.Parent = delayFrame
+
+local increaseDelayCorner = Instance.new("UICorner")
+increaseDelayCorner.CornerRadius = UDim.new(0, 14)
+increaseDelayCorner.Parent = increaseDelayButton
+
+local collapseDelayPanelButton = Instance.new("TextButton")
+collapseDelayPanelButton.Size = UDim2.new(0, 24, 0, 24)
+collapseDelayPanelButton.Position = UDim2.new(1, -30, 0, 6)
+collapseDelayPanelButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+collapseDelayPanelButton.BackgroundTransparency = 0.3
+collapseDelayPanelButton.Text = "-"
+collapseDelayPanelButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+collapseDelayPanelButton.Font = Enum.Font.SourceSansBold
+collapseDelayPanelButton.TextSize = 18
+collapseDelayPanelButton.Parent = delayFrame
+
+local collapseDelayPanelCorner = Instance.new("UICorner")
+collapseDelayPanelCorner.CornerRadius = UDim.new(0, 12)
+collapseDelayPanelCorner.Parent = collapseDelayPanelButton
+
+local isDelayPanelCollapsed = false
+
+collapseDelayPanelButton.MouseButton1Click:Connect(function()
+    isDelayPanelCollapsed = not isDelayPanelCollapsed
+    delayLabel.Visible = not isDelayPanelCollapsed
+    decreaseDelayButton.Visible = not isDelayPanelCollapsed
+    increaseDelayButton.Visible = not isDelayPanelCollapsed
+    collapseDelayPanelButton.Text = isDelayPanelCollapsed and "+" or "-"
+    playClickBounceTween(collapseDelayPanelButton)
+end)
+
+local function updateDelayLabel()
+    delayLabel.Text = "Delay: " .. string.format("%.1f", activationDelay)
+end
+
+decreaseDelayButton.MouseButton1Click:Connect(function()
+    activationDelay = math.max(0, activationDelay - 0.1)
+    updateDelayLabel()
+    playClickBounceTween(decreaseDelayButton)
+end)
+
+increaseDelayButton.MouseButton1Click:Connect(function()
+    activationDelay = activationDelay + 0.1
+    updateDelayLabel()
+    playClickBounceTween(increaseDelayButton)
+end)
+
+updateDelayLabel()
+
+local watermarkLabel = Instance.new("TextLabel")
+watermarkLabel.Size = UDim2.new(0, 250, 0, 25)
+watermarkLabel.Position = UDim2.new(0, 10, 0, 10)
+watermarkLabel.BackgroundTransparency = 1
+watermarkLabel.Text = "Merebennie on YouTube"
+watermarkLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+watermarkLabel.TextTransparency = 0.3
+watermarkLabel.TextScaled = true
+watermarkLabel.Font = Enum.Font.Arcade
+watermarkLabel.Parent = uiScreenGui
