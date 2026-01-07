@@ -1,0 +1,986 @@
+local uiLibrary = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+local PlayersService = game:GetService("Players")
+local localPlayer = PlayersService.LocalPlayer
+local RunService = game:GetService("RunService")
+game:GetService("TweenService")
+game:GetService("UserInputService")
+local WorkspaceService = game:GetService("Workspace")
+local discordInviteLink = "https://discord.gg/5x4xbPvuSc"
+local youtubeChannelLink = "https://youtube.com/@merebennie?si=0nd9wf4MjqoIyyse"
+
+local animationIds = {
+    loopReworkAnimDetectId = "10503381238",
+    loopReworkBlockAnimId = "10471478869",
+    boomyAnimDetectId = "12296113986"
+}
+
+local defaultTuning = {
+    LoopReworkResponsiveness = 483,
+    BoomyResponsiveness = 1000,
+    DefaultJump = 62
+}
+
+local settings = {
+    loopRework = false,
+    loopReworkDebounce = false,
+    loopReworkBlocked = false,
+    loopReworkWaitDetect = 3,
+    loopReworkWaitJump = 0,
+    loopReworkWaitRemote = 1,
+    loopReworkLockDuration = 15,
+    loopReworkTargetRadius = 50,
+    loopReworkCooldown = 10,
+    loopReworkResponsiveness = defaultTuning.LoopReworkResponsiveness,
+    ForceJumpUpwardVelocity = defaultTuning.DefaultJump,
+
+    boomy = false,
+    boomyDebounce = false,
+    boomyBlocked = false,
+    boomyWaitDetect = 3,
+    boomyWaitJump = 0,
+    boomyWaitRemote = 1,
+    boomyLockDuration = 10,
+    boomyTargetRadius = 50,
+    boomyCooldown = 10,
+    boomyResponsiveness = defaultTuning.BoomyResponsiveness,
+    boomyInitialDelay = 14,
+    boomyForceJumpUpwardVelocity = defaultTuning.DefaultJump
+}
+
+local windowLibrary = uiLibrary
+
+local mainWindow = uiLibrary.CreateWindow(windowLibrary, {
+    Title = "Merebennie Loopdash",
+    Icon = "rbxassetid://88076050039057",
+    Author = "Auto Tech",
+    Folder = "Subscribe",
+    Size = UDim2.fromOffset(650, 550),
+    Theme = "Dark",
+    HideSearchBar = false,
+    NewElements = true,
+    SideBarWidth = 200,
+    HidePanelBackground = false
+})
+
+local tabs = {
+    LoopDashv2 = mainWindow:Tab({
+        Title = "Loop Dash v2",
+        Icon = "lucide:refresh-ccw-dot",
+        Opened = true
+    }),
+    Boomy = mainWindow:Tab({
+        Title = "Boomy Lethal Dash",
+        Icon = "lucide:zap",
+        Opened = false
+    }),
+    Instructions = mainWindow:Tab({
+        Title = "Instructions",
+        Icon = "lucide:book-open",
+        Opened = false
+    }),
+    Credits = mainWindow:Tab({
+        Title = "Credits",
+        Icon = "lucide:user-check",
+        Opened = false
+    })
+}
+
+tabs.LoopDashv2:Paragraph({
+    Title = "Loop Dash v2 / Rework",
+    Desc = "Improved loop dash – fast, smooth, and tuneable for different playstyles.",
+    Image = "lucide:refresh-ccw-dot",
+    ImageSize = 20,
+    Color = Color3.fromHex("#4ecdc4")
+})
+
+tabs.LoopDashv2:Toggle({
+    Title = "LoopDash v2 Enabled",
+    Flag = "Save23",
+    Value = settings.loopRework,
+    Callback = function(enabled)
+        settings.loopRework = enabled
+        setupLoopRework()
+        uiLibrary:Notify({
+            Title = "LoopDash v2",
+            Content = enabled and "ENABLED" or "DISABLED",
+            Icon = enabled and "lucide:check" or "lucide:x",
+            Duration = 2
+        })
+    end
+})
+
+local loopDashTabInstance = tabs.LoopDashv2
+local loopDashSliderFunction = loopDashTabInstance.Slider
+
+loopDashSliderFunction(loopDashTabInstance, {
+    Title = "Jump height",
+    Flag = "Save25",
+    Value = {
+        Min = 10,
+        Max = 100,
+        Default = settings.ForceJumpUpwardVelocity or defaultTuning.DefaultJump
+    },
+    Callback = function(value)
+        settings.ForceJumpUpwardVelocity = tonumber(value) or settings.ForceJumpUpwardVelocity
+    end
+})
+
+tabs.LoopDashv2:Slider({
+    Title = "Delay",
+    Flag = "Save26",
+    Value = {
+        Min = 0,
+        Max = 10,
+        Default = settings.loopReworkWaitDetect
+    },
+    Callback = function(value)
+        settings.loopReworkWaitDetect = value
+    end
+})
+
+tabs.LoopDashv2:Slider({
+    Title = "First Flick Delay",
+    Flag = "Save27",
+    Value = {
+        Min = 0,
+        Max = 10,
+        Default = settings.loopReworkWaitRemote
+    },
+    Callback = function(value)
+        settings.loopReworkWaitRemote = value
+    end
+})
+
+tabs.LoopDashv2:Slider({
+    Title = "Accuracy",
+    Flag = "Save28",
+    Value = {
+        Min = 1,
+        Max = 1000,
+        Default = settings.loopReworkResponsiveness
+    },
+    Callback = function(value)
+        settings.loopReworkResponsiveness = tonumber(value) or settings.loopReworkResponsiveness
+    end
+})
+
+tabs.Boomy:Paragraph({
+    Title = "Boomy Lethal Dash",
+    Desc = "Boomy tech recreation – best on 90–120 ms ping.",
+    Image = "lucide:zap",
+    ImageSize = 20,
+    Color = Color3.fromHex("#ff6b6b")
+})
+
+tabs.Boomy:Toggle({
+    Title = "Boomy Lethal Dash Enabled",
+    Flag = "SaveBoomyToggle",
+    Value = settings.boomy,
+    Callback = function(enabled)
+        settings.boomy = enabled
+        setupBoomy()
+        uiLibrary:Notify({
+            Title = "Boomy",
+            Content = enabled and "ENABLED" or "DISABLED",
+            Icon = enabled and "lucide:check" or "lucide:x",
+            Duration = 2
+        })
+    end
+})
+
+tabs.Boomy:Slider({
+    Title = "Initial Delay (slider ÷10 -> seconds)",
+    Flag = "SaveBoomyInitialDelay",
+    Value = {
+        Min = 0,
+        Max = 30,
+        Default = settings.boomyInitialDelay
+    },
+    Callback = function(value)
+        settings.boomyInitialDelay = value
+    end
+})
+
+tabs.Boomy:Slider({
+    Title = "Delay",
+    Flag = "SaveBoomyDelay",
+    Value = {
+        Min = 0,
+        Max = 10,
+        Default = settings.boomyWaitDetect
+    },
+    Callback = function(value)
+        settings.boomyWaitDetect = value
+    end
+})
+
+tabs.Boomy:Slider({
+    Title = "First Flick Delay",
+    Flag = "SaveBoomyFirstFlick",
+    Value = {
+        Min = 0,
+        Max = 10,
+        Default = settings.boomyWaitRemote
+    },
+    Callback = function(value)
+        settings.boomyWaitRemote = value
+    end
+})
+
+tabs.Boomy:Slider({
+    Title = "Accuracy",
+    Flag = "SaveBoomyAccuracy",
+    Value = {
+        Min = 1,
+        Max = 1000,
+        Default = settings.boomyResponsiveness
+    },
+    Callback = function(value)
+        settings.boomyResponsiveness = tonumber(value) or settings.boomyResponsiveness
+    end
+})
+
+local boomyTabInstance = tabs.Boomy
+local boomySliderFunction = boomyTabInstance.Slider
+
+boomySliderFunction(boomyTabInstance, {
+    Title = "Jump height (Boomy)",
+    Flag = "SaveBoomyJumpHeight",
+    Value = {
+        Min = 10,
+        Max = 100,
+        Default = settings.boomyForceJumpUpwardVelocity or defaultTuning.DefaultJump
+    },
+    Callback = function(value)
+        settings.boomyForceJumpUpwardVelocity = tonumber(value) or settings.boomyForceJumpUpwardVelocity
+    end
+})
+
+tabs.Instructions:Paragraph({
+    Title = "How to use",
+    Desc = "This script gives you two advanced movement techs: Boomy Lethal Dash and Loop Dash V2. Both are adjustable so you can tune speed, duration, and accuracy to match your playstyle and connection.\n\nHow to use:\n➜ Boomy Lethal Dash – equip Garou and use Garou's second skill (the one with the clear wind-up). Set your preferred Initial Delay and other sliders, then use the skill as you normally would.\n\n➜ Loop Dash V2 – perform an uppercut in-game. Enable the Loop Dash v2 toggle and adjust the sliders until it feels right.\n\nPractical tips:\n➜ Start with the defaults and try each tech once or twice to see how it behaves.\n➜ If timing feels off, tweak the Delay sliders in small steps (1–3 units = 0.1–0.3s) and test again.\n➜ Accuracy controls how sharp the result feels – higher values = tighter, lower = smoother.\n➜ For Boomy, Initial Delay helps line things up with the skill's wind-up – increase it a bit if needed.\n\nQuick test routine: enable a mode, use its activation once near a target, then adjust one slider at a time until it feels natural.\n\n",
+    Image = "lucide:book-open",
+    ImageSize = 20,
+    Color = Color3.fromHex("#ffd166")
+})
+
+tabs.Credits:Paragraph({
+    Title = "Credits",
+    Desc = "I am Merebennie – a YouTube content creator who makes scripts and tools, with a focus on TSB scripting and player-friendly utilities. Join the community for updates and help.",
+    Image = "lucide:user-check",
+    ImageSize = 20,
+    Color = Color3.fromHex("#9b5de5")
+})
+
+tabs.Credits:Button({
+    Title = "Copy YouTube Channel Link",
+    Flag = "CopyYT",
+    Callback = function()
+        local copied = false
+        pcall(function()
+            if setclipboard then
+                setclipboard(youtubeChannelLink)
+                copied = true
+            end
+        end)
+        if copied then
+            uiLibrary:Notify({
+                Title = "Credits",
+                Content = "YouTube link copied to clipboard!",
+                Icon = "lucide:check",
+                Duration = 3
+            })
+        else
+            uiLibrary:Notify({
+                Title = "Credits",
+                Content = "Couldn't copy automatically. Link: " .. youtubeChannelLink,
+                Icon = "lucide:x",
+                Duration = 5
+            })
+        end
+    end
+})
+
+tabs.Credits:Button({
+    Title = "Copy Discord Invite",
+    Flag = "CopyDiscord",
+    Callback = function()
+        local copied = false
+        pcall(function()
+            if setclipboard then
+                setclipboard(discordInviteLink)
+                copied = true
+            end
+        end)
+        if copied then
+            uiLibrary:Notify({
+                Title = "Credits",
+                Content = "Discord invite copied to clipboard!",
+                Icon = "lucide:check",
+                Duration = 3
+            })
+        else
+            uiLibrary:Notify({
+                Title = "Credits",
+                Content = "Couldn't copy automatically. Invite: " .. discordInviteLink,
+                Icon = "lucide:x",
+                Duration = 5
+            })
+        end
+    end
+})
+
+local loopReworkConnections = {}
+local activeLoopReworkLockCleanup = nil
+local boomyConnections = {}
+local activeBoomyLockCleanup = nil
+
+local function disconnectConnectionSafely(connection)
+    if connection and typeof(connection) == "RBXScriptConnection" then
+        pcall(function()
+            connection:Disconnect()
+        end)
+    end
+end
+
+local function getCharacterHumanoidAndRoot()
+    local character = localPlayer.Character
+    if character then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        if humanoid and rootPart then
+            return character, humanoid, rootPart
+        else
+            return nil
+        end
+    else
+        return nil
+    end
+end
+
+function fireDashQWRemote()
+    local character = localPlayer.Character
+    if character then
+        local communicateRemote = character:FindFirstChild("Communicate")
+        if communicateRemote and (typeof(communicateRemote.FireServer) == "function" or type(communicateRemote.FireServer) == "function") then
+            local dashPayload = {
+                {
+                    Dash = Enum.KeyCode.W,
+                    Key = Enum.KeyCode.Q,
+                    Goal = "KeyPress"
+                }
+            }
+            pcall(function()
+                communicateRemote:FireServer(unpack(dashPayload))
+            end)
+        end
+    end
+end
+
+function findBestTargetWithinRadius(customRadius)
+    local radius = customRadius or settings.loopReworkTargetRadius
+    local liveFolder = WorkspaceService:FindFirstChild("Live")
+    if not liveFolder then
+        return nil
+    end
+    local _, _, rootPart = getCharacterHumanoidAndRoot()
+    if not rootPart then
+        return nil
+    end
+    local liveChildrenIterator, liveChildrenTable, liveChildIndex = ipairs(liveFolder:GetChildren())
+    local bestTarget = nil
+    while true do
+        local currentChild
+        liveChildIndex, currentChild = liveChildrenIterator(liveChildrenTable, liveChildIndex)
+        if liveChildIndex == nil then
+            break
+        end
+        if currentChild and currentChild:IsA("Model") and currentChild ~= localPlayer.Character then
+            local targetRoot = currentChild:FindFirstChild("HumanoidRootPart")
+            local targetHumanoid = currentChild:FindFirstChildOfClass("Humanoid")
+            if targetRoot and targetHumanoid and targetHumanoid.Health > 0 and (currentChild.Name == "Weakest Dummy" or PlayersService:GetPlayerFromCharacter(currentChild) ~= nil) then
+                local distance = (targetRoot.Position - rootPart.Position).Magnitude
+                if distance <= radius then
+                    bestTarget = targetRoot
+                    radius = distance
+                end
+            end
+        end
+    end
+    return bestTarget
+end
+
+function modelHasBlockingAnimation(model)
+    if not (model and model.Parent) then
+        return false
+    end
+    local targetHumanoid = model:FindFirstChildOfClass("Humanoid")
+    if not targetHumanoid then
+        return false
+    end
+    local success, tracks = pcall(function()
+        return targetHumanoid:GetPlayingAnimationTracks()
+    end)
+    if success and tracks then
+        local tracksIterator, tracksTable, trackIndex = ipairs(tracks)
+        while true do
+            local track
+            trackIndex, track = tracksIterator(tracksTable, trackIndex)
+            if trackIndex == nil then
+                break
+            end
+            if track and track.Animation and tostring(track.Animation.AnimationId or ""):find(animationIds.loopReworkBlockAnimId, 1, true) then
+                return true
+            end
+        end
+    else
+        local childrenIterator, childrenTable, childIndex = ipairs(targetHumanoid:GetChildren())
+        while true do
+            local child
+            childIndex, child = childrenIterator(childrenTable, childIndex)
+            if childIndex == nil then
+                break
+            end
+            if child:IsA("Animation") and tostring(child.AnimationId or ""):find(animationIds.loopReworkBlockAnimId, 1, true) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function scanForBlockingAnimation()
+    local liveFolder = WorkspaceService:FindFirstChild("Live")
+    if not liveFolder then
+        return false
+    end
+    local liveIterator, liveTable, liveIndex = ipairs(liveFolder:GetChildren())
+    while true do
+        local model
+        liveIndex, model = liveIterator(liveTable, liveIndex)
+        if liveIndex == nil then
+            break
+        end
+        if model and model:IsA("Model") and model ~= localPlayer.Character then
+            local humanoid = model:FindFirstChildOfClass("Humanoid")
+            if humanoid and humanoid.Health > 0 and modelHasBlockingAnimation(model) then
+                return true, model
+            end
+        end
+    end
+    return false
+end
+
+function startHorizontalLookLock(targetPart, lockDuration, responsiveness)
+    if not (targetPart and targetPart.Parent) then
+        return nil
+    end
+    local _, humanoid, rootPart = getCharacterHumanoidAndRoot()
+    if not (rootPart and humanoid) then
+        return nil
+    end
+    if lockDuration <= 0 then
+        return nil
+    end
+    local responsivenessValue = tonumber(responsiveness) or (tonumber(settings.loopReworkResponsiveness) or defaultTuning.LoopReworkResponsiveness)
+    local lockResponsiveness = math.clamp(responsivenessValue, 1, 10000)
+    local lockStartTime = tick()
+    local lockConnection = nil
+
+    lockConnection = RunService.RenderStepped:Connect(function(deltaTime)
+        if targetPart and targetPart.Parent then
+            if rootPart and rootPart.Parent then
+                local currentPosition = rootPart.Position
+                local projectedTargetPosition = Vector3.new(targetPart.Position.X, currentPosition.Y, targetPart.Position.Z)
+                if (projectedTargetPosition - currentPosition).Magnitude >= 0.001 then
+                    local targetCFrame = CFrame.new(currentPosition, projectedTargetPosition)
+                    local alpha
+                    if lockResponsiveness < 1000 then
+                        local smoothedAlpha = 1 - math.exp(-0.02 * lockResponsiveness * deltaTime)
+                        alpha = math.clamp(smoothedAlpha, 0, 1)
+                    else
+                        alpha = 1
+                    end
+                    if alpha >= 0.999999 then
+                        pcall(function()
+                            rootPart.CFrame = targetCFrame
+                        end)
+                    else
+                        local lerped = rootPart.CFrame:Lerp(targetCFrame, alpha)
+                        local smoothedCFrame = CFrame.new(currentPosition) * CFrame.fromMatrix(Vector3.new(), lerped.RightVector, lerped.UpVector)
+                        pcall(function()
+                            rootPart.CFrame = smoothedCFrame
+                        end)
+                    end
+                end
+                if lockDuration <= tick() - lockStartTime then
+                    if lockConnection then
+                        lockConnection:Disconnect()
+                    end
+                end
+            else
+                if lockConnection then
+                    lockConnection:Disconnect()
+                end
+                return
+            end
+        else
+            if lockConnection then
+                lockConnection:Disconnect()
+            end
+            return
+        end
+    end)
+
+    return function()
+        if lockConnection then
+            pcall(function()
+                lockConnection:Disconnect()
+            end)
+        end
+    end
+end
+
+function cancelLoopReworkLockAndRestoreHumanoid()
+    if activeLoopReworkLockCleanup then
+        pcall(activeLoopReworkLockCleanup)
+        activeLoopReworkLockCleanup = nil
+    end
+    local loopReworkHumanoid = localPlayer.Character
+    if loopReworkHumanoid then
+        loopReworkHumanoid = loopReworkHumanoid:FindFirstChildOfClass("Humanoid")
+    end
+    if loopReworkHumanoid then
+        pcall(function()
+            loopReworkHumanoid.AutoRotate = true
+        end)
+    end
+end
+
+function cancelBoomyLockAndRestoreHumanoid()
+    if activeBoomyLockCleanup then
+        pcall(activeBoomyLockCleanup)
+        activeBoomyLockCleanup = nil
+    end
+    local boomyHumanoid = localPlayer.Character
+    if boomyHumanoid then
+        boomyHumanoid = boomyHumanoid:FindFirstChildOfClass("Humanoid")
+    end
+    if boomyHumanoid then
+        pcall(function()
+            boomyHumanoid.AutoRotate = true
+        end)
+    end
+end
+
+function hookLoopReworkToCharacter()
+    disconnectConnectionSafely(loopReworkConnections.anim)
+    local character = localPlayer.Character
+    if character then
+        local humanoid = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid", 5)
+        if humanoid then
+            loopReworkConnections.anim = humanoid.AnimationPlayed:Connect(onLoopReworkAnimationPlayed)
+        end
+    else
+        return
+    end
+end
+
+function hookBoomyToCharacter()
+    disconnectConnectionSafely(boomyConnections.anim)
+    local character = localPlayer.Character
+    if character then
+        local humanoid = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid", 5)
+        if humanoid then
+            boomyConnections.anim = humanoid.AnimationPlayed:Connect(onBoomyAnimationPlayed)
+        end
+    else
+        return
+    end
+end
+
+function startLoopReworkBlockChecker()
+    disconnectConnectionSafely(loopReworkConnections.blockChecker)
+    local loopReworkBlockCheckAccumulator = 0
+    loopReworkConnections.blockChecker = RunService.Heartbeat:Connect(function(deltaTime)
+        if settings.loopRework then
+            loopReworkBlockCheckAccumulator = loopReworkBlockCheckAccumulator + deltaTime
+            if loopReworkBlockCheckAccumulator >= 0.12 then
+                loopReworkBlockCheckAccumulator = 0
+                local hasBlock, _ = scanForBlockingAnimation()
+                if hasBlock and not settings.loopReworkBlocked then
+                    settings.loopReworkBlocked = true
+                    cancelLoopReworkLockAndRestoreHumanoid()
+                    disconnectConnectionSafely(loopReworkConnections.anim)
+                elseif not hasBlock and settings.loopReworkBlocked then
+                    settings.loopReworkBlocked = false
+                    if settings.loopRework then
+                        hookLoopReworkToCharacter()
+                    end
+                end
+            end
+        else
+            return
+        end
+    end)
+end
+
+function startBoomyBlockChecker()
+    disconnectConnectionSafely(boomyConnections.blockChecker)
+    local boomyBlockCheckAccumulator = 0
+    boomyConnections.blockChecker = RunService.Heartbeat:Connect(function(deltaTime)
+        if settings.boomy then
+            boomyBlockCheckAccumulator = boomyBlockCheckAccumulator + deltaTime
+            if boomyBlockCheckAccumulator >= 0.12 then
+                boomyBlockCheckAccumulator = 0
+                local hasBlock, _ = scanForBlockingAnimation()
+                if hasBlock and not settings.boomyBlocked then
+                    settings.boomyBlocked = true
+                    cancelBoomyLockAndRestoreHumanoid()
+                    disconnectConnectionSafely(boomyConnections.anim)
+                elseif not hasBlock and settings.boomyBlocked then
+                    settings.boomyBlocked = false
+                    if settings.boomy then
+                        hookBoomyToCharacter()
+                    end
+                end
+            end
+        else
+            return
+        end
+    end)
+end
+
+function setupLoopRework()
+    if settings.loopRework then
+        hookLoopReworkToCharacter()
+        startLoopReworkBlockChecker()
+        disconnectConnectionSafely(loopReworkConnections.charAdded)
+        loopReworkConnections.charAdded = localPlayer.CharacterAdded:Connect(function(newCharacter)
+            pcall(function()
+                newCharacter:WaitForChild("Humanoid", 6)
+            end)
+            task.wait(0.25)
+            if settings.loopRework then
+                hookLoopReworkToCharacter()
+                settings.loopReworkDebounce = false
+                settings.loopReworkBlocked = false
+            end
+        end)
+    else
+        disconnectConnectionSafely(loopReworkConnections.anim)
+        disconnectConnectionSafely(loopReworkConnections.blockChecker)
+        disconnectConnectionSafely(loopReworkConnections.charAdded)
+        cancelLoopReworkLockAndRestoreHumanoid()
+        settings.loopReworkDebounce = false
+        settings.loopReworkBlocked = false
+    end
+end
+
+function setupBoomy()
+    if settings.boomy then
+        hookBoomyToCharacter()
+        startBoomyBlockChecker()
+        disconnectConnectionSafely(boomyConnections.charAdded)
+        boomyConnections.charAdded = localPlayer.CharacterAdded:Connect(function(newCharacter)
+            pcall(function()
+                newCharacter:WaitForChild("Humanoid", 6)
+            end)
+            task.wait(0.25)
+            if settings.boomy then
+                hookBoomyToCharacter()
+                settings.boomyDebounce = false
+                settings.boomyBlocked = false
+            end
+        end)
+    else
+        disconnectConnectionSafely(boomyConnections.anim)
+        disconnectConnectionSafely(boomyConnections.blockChecker)
+        disconnectConnectionSafely(boomyConnections.charAdded)
+        cancelBoomyLockAndRestoreHumanoid()
+        settings.boomyDebounce = false
+        settings.boomyBlocked = false
+    end
+end
+
+function runLoopReworkSequence()
+    if settings.loopReworkDebounce or not settings.loopRework or settings.loopReworkBlocked then
+        return
+    else
+        settings.loopReworkDebounce = true
+        local waitBeforeDetect = settings.loopReworkWaitDetect / 10
+        local waitBeforeJump = settings.loopReworkWaitJump / 10
+        local waitBeforeRemote = settings.loopReworkWaitRemote / 10
+        local lockDuration = settings.loopReworkLockDuration / 10
+        local cooldownDuration = settings.loopReworkCooldown / 10
+
+        local startTime = tick()
+        while tick() - startTime < waitBeforeDetect do
+            if not settings.loopRework or settings.loopReworkBlocked then
+                settings.loopReworkDebounce = false
+                return
+            end
+            RunService.Heartbeat:Wait()
+        end
+
+        local _, loopReworkHumanoidAfterWait, loopReworkRootAfterWait = getCharacterHumanoidAndRoot()
+        if loopReworkHumanoidAfterWait and loopReworkRootAfterWait then
+            local originalAutoRotateLoop = nil
+            pcall(function()
+                originalAutoRotateLoop = loopReworkHumanoidAfterWait.AutoRotate
+            end)
+            pcall(function()
+                loopReworkHumanoidAfterWait.AutoRotate = false
+            end)
+            pcall(function()
+                loopReworkHumanoidAfterWait.Jump = true
+                loopReworkHumanoidAfterWait:ChangeState(Enum.HumanoidStateType.Jumping)
+            end)
+            pcall(function()
+                if loopReworkRootAfterWait and loopReworkRootAfterWait.Parent then
+                    local currentLinearVelocity = loopReworkRootAfterWait.AssemblyLinearVelocity
+                    local jumpPower = settings.ForceJumpUpwardVelocity or defaultTuning.DefaultJump
+                    loopReworkRootAfterWait.AssemblyLinearVelocity = Vector3.new(currentLinearVelocity.X, jumpPower, currentLinearVelocity.Z)
+                    local currentVelocity = loopReworkRootAfterWait.Velocity
+                    loopReworkRootAfterWait.Velocity = Vector3.new(currentVelocity.X, jumpPower, currentVelocity.Z)
+                end
+            end)
+
+            local jumpStartTime = tick()
+            local savedAutoRotateLoop = originalAutoRotateLoop
+            while tick() - jumpStartTime < waitBeforeJump do
+                if not settings.loopRework or settings.loopReworkBlocked then
+                    pcall(function()
+                        if loopReworkHumanoidAfterWait and loopReworkHumanoidAfterWait.Parent and savedAutoRotateLoop ~= nil then
+                            loopReworkHumanoidAfterWait.AutoRotate = savedAutoRotateLoop
+                        end
+                    end)
+                    settings.loopReworkDebounce = false
+                    return
+                end
+                RunService.Heartbeat:Wait()
+            end
+
+            fireDashQWRemote()
+
+            local remoteStartTime = tick()
+            while tick() - remoteStartTime < waitBeforeRemote do
+                if not settings.loopRework or settings.loopReworkBlocked then
+                    pcall(function()
+                        if loopReworkHumanoidAfterWait and loopReworkHumanoidAfterWait.Parent and savedAutoRotateLoop ~= nil then
+                            loopReworkHumanoidAfterWait.AutoRotate = savedAutoRotateLoop
+                        end
+                    end)
+                    settings.loopReworkDebounce = false
+                    return
+                end
+                RunService.Heartbeat:Wait()
+            end
+
+            local bestTarget = findBestTargetWithinRadius(settings.loopReworkTargetRadius)
+            local loopReworkLockCleanupFunction
+            if bestTarget and not settings.loopReworkBlocked then
+                loopReworkLockCleanupFunction = startHorizontalLookLock(bestTarget, lockDuration, settings.loopReworkResponsiveness)
+                activeLoopReworkLockCleanup = loopReworkLockCleanupFunction
+            else
+                loopReworkLockCleanupFunction = nil
+            end
+
+            local loopReworkLockEndTime = tick() + math.max(lockDuration, 1.2)
+            task.spawn(function()
+                while tick() < loopReworkLockEndTime and settings.loopRework and not settings.loopReworkBlocked do
+                    pcall(function()
+                        if loopReworkHumanoidAfterWait and loopReworkHumanoidAfterWait.Parent then
+                            loopReworkHumanoidAfterWait.AutoRotate = false
+                        end
+                    end)
+                    RunService.Heartbeat:Wait()
+                end
+                pcall(function()
+                    if loopReworkHumanoidAfterWait and loopReworkHumanoidAfterWait.Parent and savedAutoRotateLoop ~= nil then
+                        loopReworkHumanoidAfterWait.AutoRotate = savedAutoRotateLoop
+                    end
+                end)
+            end)
+
+            task.delay(lockDuration, function()
+                if loopReworkLockCleanupFunction then
+                    pcall(loopReworkLockCleanupFunction)
+                    activeLoopReworkLockCleanup = nil
+                end
+            end)
+
+            task.delay(cooldownDuration, function()
+                settings.loopReworkDebounce = false
+            end)
+        else
+            settings.loopReworkDebounce = false
+        end
+    end
+end
+
+function runBoomySequence()
+    if settings.boomyDebounce or not settings.boomy or settings.boomyBlocked then
+        return
+    else
+        settings.boomyDebounce = true
+        local waitBeforeDetect = settings.boomyWaitDetect / 10
+        local waitBeforeJump = settings.boomyWaitJump / 10
+        local waitBeforeRemote = settings.boomyWaitRemote / 10
+        local lockDuration = settings.boomyLockDuration / 10
+        local cooldownDuration = settings.boomyCooldown / 10
+
+        if (tonumber(settings.boomyResponsiveness) or 0) >= 1000 then
+            lockDuration = math.max(lockDuration * 0.5, 0.1)
+        end
+
+        local startTime = tick()
+        while tick() - startTime < waitBeforeDetect do
+            if not settings.boomy or settings.boomyBlocked then
+                settings.boomyDebounce = false
+                return
+            end
+            RunService.Heartbeat:Wait()
+        end
+
+        local _, boomyHumanoidAfterWait, boomyRootAfterWait = getCharacterHumanoidAndRoot()
+        if boomyHumanoidAfterWait and boomyRootAfterWait then
+            local originalAutoRotateBoomy = nil
+            pcall(function()
+                originalAutoRotateBoomy = boomyHumanoidAfterWait.AutoRotate
+            end)
+            pcall(function()
+                boomyHumanoidAfterWait.AutoRotate = false
+            end)
+            pcall(function()
+                boomyHumanoidAfterWait.Jump = true
+                boomyHumanoidAfterWait:ChangeState(Enum.HumanoidStateType.Jumping)
+            end)
+            pcall(function()
+                if boomyRootAfterWait and boomyRootAfterWait.Parent then
+                    local currentLinearVelocity = boomyRootAfterWait.AssemblyLinearVelocity
+                    local jumpPower = settings.boomyForceJumpUpwardVelocity or (settings.ForceJumpUpwardVelocity or defaultTuning.DefaultJump)
+                    boomyRootAfterWait.AssemblyLinearVelocity = Vector3.new(currentLinearVelocity.X, jumpPower, currentLinearVelocity.Z)
+                    local currentVelocity = boomyRootAfterWait.Velocity
+                    boomyRootAfterWait.Velocity = Vector3.new(currentVelocity.X, jumpPower, currentVelocity.Z)
+                end
+            end)
+
+            local jumpStartTime = tick()
+            local savedAutoRotateBoomy = originalAutoRotateBoomy
+            while tick() - jumpStartTime < waitBeforeJump do
+                if not settings.boomy or settings.boomyBlocked then
+                    pcall(function()
+                        if boomyHumanoidAfterWait and boomyHumanoidAfterWait.Parent and savedAutoRotateBoomy ~= nil then
+                            boomyHumanoidAfterWait.AutoRotate = savedAutoRotateBoomy
+                        end
+                    end)
+                    settings.boomyDebounce = false
+                    return
+                end
+                RunService.Heartbeat:Wait()
+            end
+
+            fireDashQWRemote()
+
+            local remoteStartTime = tick()
+            while tick() - remoteStartTime < waitBeforeRemote do
+                if not settings.boomy or settings.boomyBlocked then
+                    pcall(function()
+                        if boomyHumanoidAfterWait and boomyHumanoidAfterWait.Parent and savedAutoRotateBoomy ~= nil then
+                            boomyHumanoidAfterWait.AutoRotate = savedAutoRotateBoomy
+                        end
+                    end)
+                    settings.boomyDebounce = false
+                    return
+                end
+                RunService.Heartbeat:Wait()
+            end
+
+            local bestTarget = findBestTargetWithinRadius(settings.boomyTargetRadius)
+            local boomyLockCleanupFunction
+            if bestTarget and not settings.boomyBlocked then
+                boomyLockCleanupFunction = startHorizontalLookLock(bestTarget, lockDuration, settings.boomyResponsiveness)
+                activeBoomyLockCleanup = boomyLockCleanupFunction
+            else
+                boomyLockCleanupFunction = nil
+            end
+
+            local boomyLockEndTime = tick() + math.max(lockDuration, 1.2)
+            task.spawn(function()
+                while tick() < boomyLockEndTime and settings.boomy and not settings.boomyBlocked do
+                    pcall(function()
+                        if boomyHumanoidAfterWait and boomyHumanoidAfterWait.Parent then
+                            boomyHumanoidAfterWait.AutoRotate = false
+                        end
+                    end)
+                    RunService.Heartbeat:Wait()
+                end
+                pcall(function()
+                    if boomyHumanoidAfterWait and boomyHumanoidAfterWait.Parent and savedAutoRotateBoomy ~= nil then
+                        boomyHumanoidAfterWait.AutoRotate = savedAutoRotateBoomy
+                    end
+                end)
+            end)
+
+            task.delay(lockDuration, function()
+                if boomyLockCleanupFunction then
+                    pcall(boomyLockCleanupFunction)
+                    activeBoomyLockCleanup = nil
+                end
+            end)
+
+            task.delay(cooldownDuration, function()
+                settings.boomyDebounce = false
+            end)
+        else
+            settings.boomyDebounce = false
+        end
+    end
+end
+
+function onLoopReworkAnimationPlayed(track)
+    if settings.loopRework and not settings.loopReworkDebounce and not settings.loopReworkBlocked then
+        if track and track.Animation then
+            local animationId = tostring(track.Animation.AnimationId or "")
+            if animationId == animationIds.loopReworkAnimDetectId or animationId:find(animationIds.loopReworkAnimDetectId, 1, true) then
+                task.spawn(runLoopReworkSequence)
+            end
+        end
+    else
+        return
+    end
+end
+
+function onBoomyAnimationPlayed(track)
+    if settings.boomy and not settings.boomyDebounce and not settings.boomyBlocked then
+        if track and track.Animation then
+            local animationId = tostring(track.Animation.AnimationId or "")
+            if animationId == animationIds.boomyAnimDetectId or animationId:find(animationIds.boomyAnimDetectId, 1, true) then
+                local boomyInitialDelaySeconds = (settings.boomyInitialDelay or 14) / 10
+                task.spawn(function()
+                    local startTime = tick()
+                    while tick() - startTime < boomyInitialDelaySeconds do
+                        if not settings.boomy or settings.boomyBlocked then
+                            return
+                        end
+                        RunService.Heartbeat:Wait()
+                    end
+                    if settings.boomy and not settings.boomyBlocked then
+                        task.spawn(runBoomySequence)
+                    end
+                end)
+            end
+        end
+    else
+        return
+    end
+end
+
+if settings.loopRework then
+    setupLoopRework()
+end
+
+if settings.boomy then
+    setupBoomy()
+end
